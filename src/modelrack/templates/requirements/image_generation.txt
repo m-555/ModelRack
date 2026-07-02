@@ -1,0 +1,15 @@
+# Base pinned dependencies for image-generation models (e.g. Qwen-Image, Z-Image).
+# Installed into the model's isolated .venv by `modelrack setup`.
+torch>=2.5.0
+torchvision>=0.20.0
+diffusers>=0.32.0
+transformers>=4.49.0
+accelerate>=1.0.0
+safetensors>=0.4.5
+sentencepiece>=0.2.0
+pillow>=10.4.0
+# --- server runtime ---
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.0
+pyyaml>=6.0

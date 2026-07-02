@@ -1,0 +1,10 @@
+# Chatterbox TTS — pinned deps for this model's isolated .venv.
+torch>=2.5.0
+torchaudio>=2.5.0
+chatterbox-tts>=0.1.0
+soundfile>=0.12.1
+# server runtime
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.0
+pyyaml>=6.0

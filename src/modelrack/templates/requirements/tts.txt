@@ -1,0 +1,16 @@
+# Base pinned dependencies for TTS models (e.g. Chatterbox, Qwen3-TTS).
+# Installed into the model's isolated .venv by `modelrack setup`.
+# NOTE: pick ONE of the model-specific lines below to match your model.
+torch>=2.5.0
+torchaudio>=2.5.0
+soundfile>=0.12.1
+# Chatterbox:
+# chatterbox-tts>=0.1.0
+# Qwen3-TTS (transformers-based):
+transformers>=4.49.0
+accelerate>=1.0.0
+# --- server runtime ---
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.0
+pyyaml>=6.0

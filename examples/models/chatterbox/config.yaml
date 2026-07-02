@@ -1,0 +1,91 @@
+# ── Identity ──────────────────────────────────────────────
+model_id: chatterbox
+display_name: Chatterbox TTS (Multilingual)
+type: tts
+backend: local
+version: "1"
+tags: [audio, tts, voice-cloning]
+
+# Chatterbox loads via ChatterboxTTS.from_pretrained(device=...); no local
+# weight path is required (weights are fetched/cached by the library).
+weights: {}
+
+hardware:
+  min_vram_gb: 6
+  recommended_vram_gb: 12
+  dtype: float16
+  device: cuda
+
+server:
+  port: 7805
+  host: "127.0.0.1"
+  startup_timeout_sec: 120
+  endpoints:
+    infer:  "POST /infer"
+    health: "GET /health"
+    unload: "POST /unload"
+    info:   "GET /info"
+
+environment:
+  python_version: "3.11"
+  requirements_file: requirements.txt
+  venv_path: .venv
+
+defaults:
+  exaggeration: 0.5
+  cfg: 0.5
+  language_id: "en"
+  seed: -1
+
+param_schema:
+  text:
+    type: str
+    label: "Text"
+    description: "Text to synthesize into speech."
+  audio_prompt_path:
+    type: str
+    label: "Reference Voice"
+    description: "Path to a .wav reference clip for zero-shot voice cloning (optional)."
+  exaggeration:
+    type: float
+    min: 0.0
+    max: 1.0
+    step: 0.05
+    label: "Exaggeration"
+    description: "Expressiveness. 0.5 default; 0.3–0.7 typical."
+  cfg:
+    type: float
+    min: 0.0
+    max: 1.0
+    step: 0.05
+    label: "CFG Weight"
+    description: "Guidance. Set to 0 to reduce accent transfer across languages."
+  language_id:
+    type: str
+    options: [en, zh, fr, de, es, it, pt, ja, ko, ar, hi, da, sv, tr, ru, nl, pl]
+    label: "Language"
+    description: "Target language (multilingual/V3 model)."
+  seed:
+    type: int
+    min: -1
+    max: 2147483647
+    label: "Seed"
+    description: "-1 for random."
+
+load_hints:
+  framework: chatterbox
+  model_class: ChatterboxMultilingualTTS
+  hf_repo: ResembleAI/chatterbox
+  requires_packages:
+    - chatterbox-tts
+    - torchaudio>=2.5.0
+
+serving:
+  engine: custom
+  multilingual: true
+  sample_rate_attr: "model.sr"
+
+meta:
+  license: MIT
+  source: "https://huggingface.co/ResembleAI/chatterbox"
+  notes: "23+ languages. Built-in Perth watermarking on generated audio."

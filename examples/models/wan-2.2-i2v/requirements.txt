@@ -1,0 +1,17 @@
+# WAN 2.2 I2V (A14B) — pinned deps for this model's isolated .venv.
+torch>=2.5.0
+torchvision>=0.20.0
+diffusers>=0.32.0
+transformers>=4.49.0
+accelerate>=1.0.0
+safetensors>=0.4.5
+numpy>=1.26
+pillow>=10.4.0
+imageio>=2.35.0
+imageio-ffmpeg>=0.5.1
+ftfy>=6.2.0
+# server runtime
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.0
+pyyaml>=6.0

@@ -1,0 +1,102 @@
+# ── Identity ──────────────────────────────────────────────
+model_id: qwen3-tts
+display_name: Qwen3-TTS 12Hz (Custom Voice)
+type: tts
+backend: local
+version: "1.7B"
+tags: [audio, tts, qwen, custom-voice]
+
+weights:
+  main: weights
+
+hardware:
+  min_vram_gb: 8
+  recommended_vram_gb: 16
+  dtype: bfloat16
+  device: cuda
+
+server:
+  port: 7806
+  host: "127.0.0.1"
+  startup_timeout_sec: 120
+  endpoints:
+    infer:  "POST /infer"
+    health: "GET /health"
+    unload: "POST /unload"
+    info:   "GET /info"
+
+environment:
+  python_version: "3.11"
+  requirements_file: requirements.txt
+  venv_path: .venv
+
+defaults:
+  language: "Auto"
+  speaker: "Vivian"
+  temperature: 0.9
+  top_p: 0.9
+  max_new_tokens: 4096
+  seed: -1
+
+param_schema:
+  text:
+    type: str
+    label: "Text"
+    description: "Text to synthesize (single string or batch)."
+  language:
+    type: str
+    options: [Auto, Chinese, English, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian]
+    label: "Language"
+    description: "Explicit language is recommended over Auto."
+  speaker:
+    type: str
+    options: [Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee]
+    label: "Speaker"
+    description: "One of 9 premium timbres."
+  instruct:
+    type: str
+    label: "Instruction"
+    description: "Natural-language emotional/prosodic control (optional)."
+  temperature:
+    type: float
+    min: 0.1
+    max: 1.5
+    step: 0.05
+    label: "Temperature"
+  top_p:
+    type: float
+    min: 0.1
+    max: 1.0
+    step: 0.05
+    label: "Top-p"
+  max_new_tokens:
+    type: int
+    min: 128
+    max: 8192
+    step: 128
+    label: "Max New Tokens"
+  seed:
+    type: int
+    min: -1
+    max: 2147483647
+    label: "Seed"
+
+load_hints:
+  framework: qwen_tts
+  model_class: Qwen3TTSModel        # from qwen_tts import Qwen3TTSModel
+  inference_method: generate_custom_voice   # returns (wavs, sample_rate)
+  hf_repo: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+  requires_packages:
+    - qwen-tts
+    - torch>=2.5.0
+    - soundfile>=0.12.1
+
+serving:
+  engine: qwen_tts
+  frame_rate_hz: 12.5
+  attn_implementation: flash_attention_2   # server falls back to sdpa if unavailable
+
+meta:
+  license: Apache-2.0
+  source: "https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+  notes: "12.5Hz multi-codebook tokenizer; ~97ms end-to-end latency; streaming supported."

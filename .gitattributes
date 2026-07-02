@@ -1,0 +1,15 @@
+# Normalize line endings to LF in the repo; check out native on each platform.
+* text=auto eol=lf
+
+# Explicitly binary (never touch).
+*.safetensors binary
+*.ckpt binary
+*.bin binary
+*.pt binary
+*.pth binary
+*.gguf binary
+*.onnx binary
+*.png binary
+*.jpg binary
+*.wav binary
+*.mp4 binary

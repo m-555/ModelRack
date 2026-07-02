@@ -1,0 +1,113 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "modelrack"
+version = "0.1.0"
+description = "Centralized model registry, config pipeline, and process manager for local & API generative-AI models — with zero ML dependencies."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Mohsen Mirzaei", email = "mirzaie_ms@yahoo.com" }]
+keywords = [
+    "machine-learning",
+    "model-registry",
+    "inference",
+    "process-manager",
+    "diffusers",
+    "vllm",
+    "generative-ai",
+    "config",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# The hub itself has ZERO ML dependencies. Model weights are loaded only inside
+# each model's isolated .venv, never here.
+dependencies = [
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+    "typer>=0.12",
+    "watchdog>=4.0",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "types-PyYAML>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/m-555/ModelRack"
+Repository = "https://github.com/m-555/ModelRack"
+Issues = "https://github.com/m-555/ModelRack/issues"
+Changelog = "https://github.com/m-555/ModelRack/blob/main/CHANGELOG.md"
+
+[project.scripts]
+modelrack = "modelrack.cli.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/modelrack"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/modelrack/templates" = "modelrack/templates"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/modelrack", "tests", "examples", "README.md", "LICENSE"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W", "C4", "SIM"]
+ignore = [
+    "E501",  # line length is enforced by the formatter, not the linter
+    "B008",  # Depends()/Query()/typer.Option() in defaults is the FastAPI/Typer idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Templates are standalone files copied into isolated venvs; they intentionally
+# import ML libraries that are not installed in the hub environment, and carry
+# example imports used in docstrings.
+"src/modelrack/templates/servers/*.py" = ["F821", "E402", "F401"]
+"tests/*" = ["B011"]
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["modelrack"]
+mypy_path = "src"
+ignore_missing_imports = true
+# Some `type: ignore`s are platform-specific (e.g. Windows-only ctypes.windll),
+# so an ignore that is "unused" on one OS is required on another.
+warn_unused_ignores = false
+no_implicit_optional = true
+# Templates are not part of the importable package surface we type-check.
+exclude = ['src/modelrack/templates/']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Put the repo root on sys.path so `from tests.conftest import ...` works under a
+# bare `pytest` invocation (not just `python -m pytest`, which adds cwd itself).
+pythonpath = ["."]

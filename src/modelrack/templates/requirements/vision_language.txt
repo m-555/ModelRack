@@ -1,0 +1,15 @@
+# Base pinned dependencies for vision-language models (e.g. Qwen2.5-VL).
+# Installed into the model's isolated .venv by `modelrack setup`.
+# For large VLMs (72B) prefer vLLM; transformers works for smaller ones.
+torch>=2.5.0
+transformers>=4.49.0
+accelerate>=1.0.0
+qwen-vl-utils>=0.0.8
+pillow>=10.4.0
+# Optional high-throughput serving:
+# vllm>=0.6.3
+# --- server runtime ---
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.0
+pyyaml>=6.0

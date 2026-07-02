@@ -1,0 +1,12 @@
+# Base pinned dependencies for code LLMs served via vLLM (e.g. Qwen3-Coder-Next-FP8).
+# Installed into the model's isolated .venv by `modelrack setup`.
+# FP8 checkpoints require a recent vLLM + CUDA with FP8 support (Hopper/Ada+).
+vllm>=0.6.3
+torch>=2.5.0
+transformers>=4.49.0
+accelerate>=1.0.0
+# --- server runtime ---
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.0
+pyyaml>=6.0

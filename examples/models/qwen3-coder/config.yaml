@@ -1,0 +1,123 @@
+# ── Identity ──────────────────────────────────────────────
+model_id: qwen3-coder
+display_name: Qwen3-Coder-Next (FP8)
+type: code
+backend: local
+version: "next"
+tags: [code, llm, coder, fp8, qwen]
+
+weights:
+  main: weights
+
+hardware:
+  min_vram_gb: 40         # FP8 quantized
+  recommended_vram_gb: 80
+  dtype: fp8
+  device: cuda
+
+server:
+  port: 7810
+  host: "127.0.0.1"
+  startup_timeout_sec: 600
+  endpoints:
+    infer:  "POST /infer"
+    health: "GET /health"
+    unload: "POST /unload"
+    info:   "GET /info"
+
+environment:
+  python_version: "3.11"
+  requirements_file: requirements.txt
+  venv_path: .venv
+
+# Defaults tuned for precise coding.
+defaults:
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repetition_penalty: 1.0
+  max_tokens: 16384
+  seed: -1
+
+param_schema:
+  messages:
+    type: list
+    label: "Messages"
+    description: "Chat messages ({role, content})."
+  prompt:
+    type: str
+    label: "Prompt"
+    description: "Raw prompt (alternative to messages)."
+  temperature:
+    type: float
+    min: 0.0
+    max: 2.0
+    step: 0.05
+    label: "Temperature"
+    description: "0.6 recommended for precise code."
+  top_p:
+    type: float
+    min: 0.0
+    max: 1.0
+    step: 0.05
+    label: "Top-p"
+  top_k:
+    type: int
+    min: 0
+    max: 100
+    step: 1
+    label: "Top-k"
+  min_p:
+    type: float
+    min: 0.0
+    max: 1.0
+    step: 0.01
+    label: "Min-p"
+  presence_penalty:
+    type: float
+    min: -2.0
+    max: 2.0
+    step: 0.1
+    label: "Presence Penalty"
+  repetition_penalty:
+    type: float
+    min: 1.0
+    max: 2.0
+    step: 0.05
+    label: "Repetition Penalty"
+  max_tokens:
+    type: int
+    min: 1
+    max: 65536
+    step: 1
+    label: "Max New Tokens"
+  stop:
+    type: list
+    label: "Stop Sequences"
+    description: "Strings that halt generation."
+  seed:
+    type: int
+    min: -1
+    max: 2147483647
+    label: "Seed"
+
+load_hints:
+  framework: vllm
+  hf_repo: Qwen/Qwen3-Coder-Next-FP8
+  requires_packages:
+    - vllm>=0.6.3
+    - torch>=2.5.0
+
+serving:
+  engine: vllm
+  quantization: fp8
+  tensor_parallel_size: 2
+  max_model_len: 65536
+  gpu_memory_utilization: 0.9
+
+meta:
+  license: Apache-2.0
+  source: "https://huggingface.co/Qwen/Qwen3-Coder-Next-FP8"
+  notes: "FP8 checkpoint; requires FP8-capable GPU (Hopper/Ada+) and a recent vLLM."
