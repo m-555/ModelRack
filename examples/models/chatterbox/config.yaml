@@ -29,11 +29,18 @@ server:
 environment:
   python_version: "3.11"
   requirements_file: requirements.txt
-  venv_path: .venv
+  # Shared across TTS models (torch cu128 stack) to save disk — see
+  # docs/config-schema.md#sharing-a-venv-across-models. Falls back to per-model
+  # `.venv` if you remove this.
+  shared_venv: tts-cu128
 
 defaults:
   exaggeration: 0.5
-  cfg: 0.5
+  cfg_weight: 0.5
+  temperature: 0.8
+  repetition_penalty: 1.2
+  min_p: 0.05
+  top_p: 1.0
   language_id: "en"
   seed: -1
 
@@ -53,16 +60,44 @@ param_schema:
     step: 0.05
     label: "Exaggeration"
     description: "Expressiveness. 0.5 default; 0.3–0.7 typical."
-  cfg:
+  cfg_weight:
     type: float
     min: 0.0
     max: 1.0
     step: 0.05
     label: "CFG Weight"
-    description: "Guidance. Set to 0 to reduce accent transfer across languages."
+    description: "Guidance weight. Set to 0 to reduce accent transfer across languages."
+  temperature:
+    type: float
+    min: 0.1
+    max: 1.0
+    step: 0.05
+    label: "Temperature"
+    description: "Sampling temperature. Lower = more consistent; higher = more varied."
+  repetition_penalty:
+    type: float
+    min: 1.0
+    max: 2.0
+    step: 0.05
+    label: "Repetition Penalty"
+    description: "Higher discourages repeated phrases / stuttering."
+  min_p:
+    type: float
+    min: 0.0
+    max: 0.5
+    step: 0.01
+    label: "Min-P"
+    description: "Minimum-probability sampling floor (default 0.05)."
+  top_p:
+    type: float
+    min: 0.1
+    max: 1.0
+    step: 0.05
+    label: "Top-P"
+    description: "Nucleus sampling. 1.0 considers all tokens."
   language_id:
     type: str
-    options: [en, zh, fr, de, es, it, pt, ja, ko, ar, hi, da, sv, tr, ru, nl, pl]
+    options: [ar, da, de, el, en, es, fi, fr, he, hi, it, ja, ko, ms, nl, no, pl, pt, ru, sv, sw, tr, zh]
     label: "Language"
     description: "Target language (multilingual/V3 model)."
   seed:

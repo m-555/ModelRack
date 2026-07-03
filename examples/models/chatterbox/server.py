@@ -7,11 +7,20 @@ Only ``load_model()`` / ``run_inference()`` are model-specific; the FastAPI scaf
 below the marker is identical to the modelrack TTS template and should not be modified.
 
 Request payload (merged config defaults + request params):
-    text              (str, required)
-    language_id       (str)   default "en"   (23+ languages)
-    audio_prompt_path (str)   path to a .wav reference for zero-shot voice cloning
-    exaggeration      (float) default 0.5    expressiveness
-    cfg               (float) default 0.5    guidance weight
+    text               (str, required)
+    language_id        (str)   default "en"   (23 languages)
+    audio_prompt_path  (str)   path to a .wav reference for zero-shot voice cloning
+    exaggeration       (float) default 0.5    expressiveness
+    cfg_weight         (float) default 0.5    guidance weight
+    temperature        (float) default 0.8    sampling temperature
+    repetition_penalty (float) default 1.2
+    min_p              (float) default 0.05
+    top_p              (float) default 1.0
+    seed               (int)   default -1     (-1 = random)
+
+Sampling controls (temperature/min_p/top_p) are passed only when the installed
+`chatterbox-tts` build's generate() accepts them, so the server stays compatible
+across versions.
 
 Response data: {"audio_base64", "sample_rate", "encoding": "wav"}
 """
@@ -47,7 +56,7 @@ def load_model(model_dir: Path, config: dict[str, Any]) -> Any:
     device = config.get("hardware", {}).get("device", "cuda")
     if device == "cuda" and not torch.cuda.is_available():
         device = "cpu"
-    return ChatterboxMultilingualTTS.from_pretrained(device=device, t3_model="v3")
+    return ChatterboxMultilingualTTS.from_pretrained(device=device)
 
 
 def run_inference(model: Any, payload: dict[str, Any]) -> dict[str, Any]:
@@ -55,14 +64,28 @@ def run_inference(model: Any, payload: dict[str, Any]) -> dict[str, Any]:
     if "text" not in payload or not payload["text"]:
         raise ValueError("payload.text is required")
 
+    import inspect
+
     # Pass only the tuning args that are present, to stay compatible across versions.
     kwargs: dict[str, Any] = {"language_id": payload.get("language_id", "en")}
     if payload.get("audio_prompt_path"):
         kwargs["audio_prompt_path"] = payload["audio_prompt_path"]
     if "exaggeration" in payload:
         kwargs["exaggeration"] = float(payload["exaggeration"])
-    if "cfg" in payload:
-        kwargs["cfg"] = float(payload["cfg"])
+    if "cfg_weight" in payload:
+        kwargs["cfg_weight"] = float(payload["cfg_weight"])
+    if "repetition_penalty" in payload:
+        kwargs["repetition_penalty"] = float(payload["repetition_penalty"])
+
+    # Sampling controls — only pass those the installed build's generate() accepts.
+    _sig = inspect.signature(model.generate).parameters
+    for _name in ("temperature", "min_p", "top_p"):
+        if _name in payload and _name in _sig:
+            kwargs[_name] = float(payload[_name])
+
+    seed = int(payload.get("seed", -1))
+    if seed >= 0:
+        torch.manual_seed(seed)
 
     wav = model.generate(payload["text"], **kwargs)
 
