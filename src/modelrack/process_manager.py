@@ -8,6 +8,7 @@ and persists their state so running servers survive a hub restart.
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 import time
@@ -28,7 +29,12 @@ from modelrack.resolver import ModelResolver
 from modelrack.schemas.model_types import template_for
 from modelrack.schemas.resolved_model import ResolvedModel
 from modelrack.schemas.server_process import ServerProcess
-from modelrack.utils.paths import venv_dir, venv_exists, venv_python
+from modelrack.utils.paths import (
+    resolve_venv_dir,
+    resolve_venv_exists,
+    resolve_venv_python,
+    venv_python_version,
+)
 from modelrack.utils.ports import find_free_port, is_port_free
 from modelrack.utils.procstate import ProcessStateStore, pid_alive
 
@@ -39,6 +45,33 @@ UV_INSTALL_HINT = (
     "  curl -LsSf https://astral.sh/uv/install.sh | sh   (Linux/macOS)\n"
     '  powershell -c "irm https://astral.sh/uv/install.ps1 | iex"   (Windows)'
 )
+
+# Machine-wide extra package index(es) for `setup` installs — e.g. a PyTorch CUDA
+# wheel index. Comma-separated. Applies to every model, so the GPU-specific choice
+# stays out of the (portable) committed configs.
+EXTRA_INDEX_ENV = "MODELRACK_PIP_EXTRA_INDEX_URL"
+
+
+def _extra_index_urls(environment: dict) -> list[str]:
+    """Collect extra package index URLs for a `uv pip install`, from the model's
+    ``environment.pip_extra_index_url`` (str or list) plus the machine-wide
+    ``MODELRACK_PIP_EXTRA_INDEX_URL`` env var. De-duplicated, order-preserving."""
+    urls: list[str] = []
+    cfg = environment.get("pip_extra_index_url")
+    if isinstance(cfg, str):
+        urls.append(cfg)
+    elif isinstance(cfg, (list, tuple)):
+        urls.extend(str(u) for u in cfg)
+    env_val = os.environ.get(EXTRA_INDEX_ENV, "").strip()
+    if env_val:
+        urls.extend(part.strip() for part in env_val.split(",") if part.strip())
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for u in urls:
+        if u and u not in seen:
+            seen.add(u)
+            ordered.append(u)
+    return ordered
 
 
 class ProcessManager:
@@ -64,36 +97,56 @@ class ProcessManager:
         resolved = self.resolver.resolve(model_id)
         model_dir = self.models_dir / model_id
         env = resolved.environment or {}
-        venv_rel = env.get("venv_path", ".venv")
         python_version = str(env.get("python_version", "3.11"))
         requirements = model_dir / env.get("requirements_file", "requirements.txt")
+        shared_name = env.get("shared_venv")
 
         uv = shutil.which("uv")
         if uv is None:
             raise UvNotFoundError(UV_INSTALL_HINT)
 
-        vdir = venv_dir(model_dir, venv_rel)
-        if force and vdir.exists():
-            logger.info("Removing existing venv %s", vdir)
-            shutil.rmtree(vdir)
+        vdir = resolve_venv_dir(self.models_dir, model_dir, env)
 
-        if not venv_exists(model_dir, venv_rel):
-            logger.info("Creating venv for %s (python %s)", model_id, python_version)
+        # --force rebuilds a per-model venv, but must NOT wipe a SHARED venv that other
+        # models depend on — there we only reinstall this model's requirements into it.
+        if force and vdir.exists():
+            if shared_name:
+                logger.warning(
+                    "Not removing shared venv %s on --force (other models use it); "
+                    "reinstalling %s's requirements into it instead.",
+                    vdir, model_id,
+                )
+            else:
+                logger.info("Removing existing venv %s", vdir)
+                shutil.rmtree(vdir)
+
+        if not resolve_venv_exists(self.models_dir, model_dir, env):
+            logger.info(
+                "Creating %svenv for %s (python %s) at %s",
+                "shared " if shared_name else "", model_id, python_version, vdir,
+            )
             self._run([uv, "venv", "--python", python_version, str(vdir)])
+        else:
+            self._warn_python_mismatch(vdir, python_version, model_id, bool(shared_name))
 
         if requirements.exists():
-            logger.info("Installing requirements for %s", model_id)
-            self._run(
-                [
-                    uv,
-                    "pip",
-                    "install",
-                    "-r",
-                    str(requirements),
-                    "--python",
-                    str(venv_python(model_dir, venv_rel)),
-                ]
+            logger.info(
+                "Installing requirements for %s into %s",
+                model_id, f"shared venv '{shared_name}'" if shared_name else "its venv",
             )
+            cmd = [
+                uv,
+                "pip",
+                "install",
+                "-r",
+                str(requirements),
+                "--python",
+                str(resolve_venv_python(self.models_dir, model_dir, env)),
+            ]
+            for url in _extra_index_urls(env):
+                cmd += ["--extra-index-url", url]
+                logger.info("Using extra package index for %s: %s", model_id, url)
+            self._run(cmd)
         else:
             logger.warning("No requirements.txt for %s at %s", model_id, requirements)
 
@@ -101,6 +154,24 @@ class ProcessManager:
 
         if self.registry.exists(model_id):
             self.registry.update_model(model_id, setup_complete=True)
+
+    def _warn_python_mismatch(
+        self, vdir: Path, expected_pyver: str, model_id: str, shared: bool
+    ) -> None:
+        """Warn when an existing (especially shared) venv's Python differs from the
+        model's ``python_version`` — the classic cause of subtle shared-venv breakage."""
+        actual = venv_python_version(vdir)
+        if actual is None:
+            return
+        exp = expected_pyver.strip()
+        # Compare on the parts the config pins (e.g. "3.11" vs the venv's "3.11.9").
+        if not actual.startswith(exp) and not exp.startswith(actual):
+            logger.warning(
+                "%svenv %s is Python %s but '%s' requests python_version=%s. Mixing "
+                "Python versions in one venv causes subtle breakage; give this model its "
+                "own shared_venv.",
+                "Shared " if shared else "", vdir, actual, model_id, expected_pyver,
+            )
 
     def _ensure_server_file(self, resolved: ResolvedModel, model_dir: Path) -> None:
         """Copy the type's server template into the model folder if absent."""
@@ -127,9 +198,8 @@ class ProcessManager:
         resolved = self.resolver.resolve(model_id)
         model_dir = self.models_dir / model_id
         env = resolved.environment or {}
-        venv_rel = env.get("venv_path", ".venv")
 
-        if not venv_exists(model_dir, venv_rel):
+        if not resolve_venv_exists(self.models_dir, model_dir, env):
             raise SetupNotCompletedError(
                 f"'{model_id}' is not set up. Run 'modelrack setup {model_id}' first."
             )
@@ -140,13 +210,29 @@ class ProcessManager:
 
         server_cfg = resolved.merged_config.get("server", {})
         host = server_cfg.get("host", "127.0.0.1")
-        port = resolved.server_port or 7800
+        configured_port = resolved.server_port or 7800
         timeout = int(server_cfg.get("startup_timeout_sec", 120))
 
-        if not is_port_free(port, host):
-            raise PortConflictError(f"Port {port} for '{model_id}' is already in use on {host}.")
+        # Use the configured port if bindable; otherwise fall back to a nearby free
+        # one (handles ports already in use OR OS-reserved, e.g. Windows/Hyper-V
+        # excluded ranges). The hub tracks the actual port, so routing is unaffected.
+        if is_port_free(configured_port, host):
+            port = configured_port
+        else:
+            try:
+                port = find_free_port(configured_port, host)
+            except OSError as exc:
+                raise PortConflictError(
+                    f"Port {configured_port} for '{model_id}' is unavailable on {host} "
+                    f"and no free port was found nearby."
+                ) from exc
+            logger.warning(
+                "Port %s for '%s' is unavailable (in use or OS-reserved); "
+                "using free port %s instead.",
+                configured_port, model_id, port,
+            )
 
-        python = venv_python(model_dir, venv_rel)
+        python = resolve_venv_python(self.models_dir, model_dir, env)
         cmd = [
             str(python),
             str(server_py),

@@ -42,6 +42,37 @@ def test_setup_calls_uv_with_correct_args(
     assert calls[1][1:4] == ["pip", "install", "-r"]
 
 
+def test_extra_index_urls_helper(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv(pm_mod.EXTRA_INDEX_ENV, raising=False)
+    assert pm_mod._extra_index_urls({}) == []
+    assert pm_mod._extra_index_urls({"pip_extra_index_url": "https://a"}) == ["https://a"]
+    assert pm_mod._extra_index_urls(
+        {"pip_extra_index_url": ["https://a", "https://b"]}
+    ) == ["https://a", "https://b"]
+    # env-var entries are appended and de-duped against config (order preserved)
+    monkeypatch.setenv(pm_mod.EXTRA_INDEX_ENV, "https://env1, https://a")
+    assert pm_mod._extra_index_urls({"pip_extra_index_url": "https://a"}) == [
+        "https://a",
+        "https://env1",
+    ]
+
+
+def test_setup_passes_extra_index_url(
+    process_manager: ProcessManager, monkeypatch: pytest.MonkeyPatch, models_dir: Path
+):
+    calls: list[list[str]] = []
+    monkeypatch.setattr(pm_mod.shutil, "which", lambda _name: "/usr/bin/uv")
+    monkeypatch.setattr(pm_mod.subprocess, "run", _fake_run_recorder(calls))
+    monkeypatch.setenv(pm_mod.EXTRA_INDEX_ENV, "https://download.pytorch.org/whl/cu128")
+
+    process_manager.setup("demo-image")
+
+    install_cmd = calls[1]  # [uv, pip, install, -r, req, --python, py, --extra-index-url, URL]
+    assert "--extra-index-url" in install_cmd
+    idx = install_cmd.index("--extra-index-url")
+    assert install_cmd[idx + 1] == "https://download.pytorch.org/whl/cu128"
+
+
 def test_setup_copies_template_when_missing(
     process_manager: ProcessManager, monkeypatch: pytest.MonkeyPatch, models_dir: Path
 ):
@@ -68,20 +99,45 @@ def test_start_requires_setup(process_manager: ProcessManager):
         process_manager.start("demo-image")
 
 
+def _raise_no_free_port(*_a, **_k):
+    raise OSError("no free port")
+
+
 def test_start_port_conflict(
     process_manager: ProcessManager, monkeypatch: pytest.MonkeyPatch, models_dir: Path
 ):
-    monkeypatch.setattr(pm_mod, "venv_exists", lambda *_a, **_k: True)
+    # Configured port unavailable AND no free port nearby -> PortConflictError.
+    monkeypatch.setattr(pm_mod, "resolve_venv_exists", lambda *_a, **_k: True)
     (models_dir / "demo-image" / "server.py").write_text("x", encoding="utf-8")
     monkeypatch.setattr(pm_mod, "is_port_free", lambda *_a, **_k: False)
+    monkeypatch.setattr(pm_mod, "find_free_port", _raise_no_free_port)
     with pytest.raises(PortConflictError):
         process_manager.start("demo-image")
+
+
+def test_start_port_fallback_uses_free_port(
+    process_manager: ProcessManager, monkeypatch: pytest.MonkeyPatch, models_dir: Path
+):
+    # Configured port unavailable (e.g. OS-reserved) -> fall back to a free one.
+    monkeypatch.setattr(pm_mod, "resolve_venv_exists", lambda *_a, **_k: True)
+    (models_dir / "demo-image" / "server.py").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(pm_mod, "is_port_free", lambda *_a, **_k: False)
+    monkeypatch.setattr(pm_mod, "find_free_port", lambda *_a, **_k: 7999)
+    monkeypatch.setattr(
+        pm_mod.subprocess, "Popen", lambda *_a, **_k: types.SimpleNamespace(pid=4242)
+    )
+    monkeypatch.setattr(pm_mod, "pid_alive", lambda _pid: True)
+    monkeypatch.setattr(ProcessManager, "_health_check", lambda *_a, **_k: True)
+
+    rec = process_manager.start("demo-image")
+    assert rec.port == 7999
+    assert rec.url.endswith(":7999")
 
 
 def test_start_health_timeout_raises(
     process_manager: ProcessManager, monkeypatch: pytest.MonkeyPatch, models_dir: Path
 ):
-    monkeypatch.setattr(pm_mod, "venv_exists", lambda *_a, **_k: True)
+    monkeypatch.setattr(pm_mod, "resolve_venv_exists", lambda *_a, **_k: True)
     (models_dir / "demo-image" / "server.py").write_text("x", encoding="utf-8")
     monkeypatch.setattr(pm_mod, "is_port_free", lambda *_a, **_k: True)
     monkeypatch.setattr(

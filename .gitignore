@@ -16,6 +16,10 @@ env/
 ENV/
 # Per-model isolated venvs live inside the models directory
 **/.venv/
+# Shared venvs (environment.shared_venv) live under <MODELS_DIR>/_shared_venvs/
+**/_shared_venvs/
+# Model weight caches (HF_HOME) — never commit weights
+**/.hf_cache/
 
 # ─── Tooling caches ───────────────────────────────────────────────────────
 .pytest_cache/
