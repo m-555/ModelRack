@@ -147,7 +147,26 @@ class ModelRack:
         auto_start: bool = True,
         timeout: int = 300,
     ) -> dict[str, Any]:
+        # API models run in-process via a provider adapter; local models route over
+        # HTTP to their subprocess server. Both return the {success,data,error} envelope.
+        if self._is_api_model(model_id):
+            return self._api_infer(model_id, payload)
         return self.client.infer(model_id, payload, auto_start=auto_start, timeout=timeout)
+
+    def _is_api_model(self, model_id: str) -> bool:
+        try:
+            return self.registry.get_model_entry(model_id).get("backend") == "api"
+        except Exception:  # noqa: BLE001 - unknown/unregistered -> treat as local
+            return False
+
+    def _api_infer(self, model_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        from modelrack.providers import get_provider
+
+        resolved = self.resolver.resolve(model_id)
+        provider = get_provider(resolved.provider)
+        merged = {**resolved.merged_config.get("defaults", {}), **payload}
+        data = provider.infer(resolved, merged)
+        return {"success": True, "data": data, "error": None}
 
     def unload(self, model_id: str) -> dict[str, Any]:
         return self.client.unload(model_id)

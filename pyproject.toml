@@ -48,6 +48,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# API-model providers (in-process, backend: api). Light, pure-Python SDKs — not part
+# of the base install so the hub stays dependency-light.
+anthropic = ["anthropic>=0.40"]
+api = ["anthropic>=0.40"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
