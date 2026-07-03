@@ -24,7 +24,9 @@ weights — **without ever importing `torch`, `diffusers` or `vllm` itself.**
   install `modelrack` and nothing heavy.
 - **Every model is fully isolated.** Each model has its own `.venv`, its own pinned
   `requirements.txt`, its own server. Version conflicts between models are structurally
-  impossible.
+  impossible — or, when several models share a compatible dependency stack, they can opt
+  into one **shared venv** (`environment.shared_venv`) to build heavy deps like torch
+  once. See [config-schema](docs/config-schema.md#sharing-a-venv-across-models).
 - **Config is layered.** `base config.yaml` → app overrides → runtime params. Later wins,
   deep-merged. One place to change a default; apps and UIs layer on top.
 - **`param_schema` drives your UIs.** Every model publishes a schema of its editable
@@ -33,6 +35,12 @@ weights — **without ever importing `torch`, `diffusers` or `vllm` itself.**
 - **Open, extensible model types.** `video_generation`, `image_generation`, `image_edit`,
   `tts`, `vision_language`, `language`, `code`, `omni` ship built-in — and you can register
   new kinds without touching the core.
+- **Local *and* API models, one interface.** Local models run as isolated subprocess
+  servers; cloud API models (Anthropic, OpenAI, Google/Vertex, …) run **in-process** via
+  provider adapters — same `hub.infer(id, payload)`, same `{success, data, error}`
+  envelope. A normalized `messages` surface with a `provider_params` escape hatch for
+  provider-native features; credentials are env-var references, never stored. See
+  [config-schema](docs/config-schema.md#api-models-backend-api).
 
 ---
 
@@ -95,6 +103,13 @@ modelrack infer qwen-image --payload '{"prompt": "a red fox in falling snow"}'
 | `qwen3-omni` | omni | transformers `Qwen3OmniMoeForConditionalGeneration` | Qwen/Qwen3-Omni-30B-A3B-Instruct |
 | `qwen3.6` | language | vLLM | Qwen/Qwen3.6-35B-A3B |
 | `qwen3-coder` | code | vLLM (FP8) | Qwen/Qwen3-Coder-Next-FP8 |
+
+### Smoke-test without a GPU
+
+A bundled zero-dependency **CPU smoke-test model** (no torch, no weights) returns canned
+output, so you can verify the full hub → server → envelope path on any machine before
+touching real models — run `modelrack list` to find it, then `modelrack setup <id>` and
+`modelrack infer <id> --payload '{"text": "hi"}'`.
 
 ## Python API
 

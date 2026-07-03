@@ -1,0 +1,45 @@
+# ── Identity ──────────────────────────────────────────────
+# Zero-ML CPU stub. Exists to smoke-test the full modelrack infer path
+# (hub -> subprocess server -> {success,data,error} envelope) WITHOUT a GPU or
+# real model weights. Its server.py imports only fastapi/uvicorn/pyyaml.
+model_id: echo
+display_name: Echo (CPU test model)
+type: echo
+backend: local
+version: "1"
+tags: [test, cpu, smoke]
+
+# No weights — nothing to load.
+weights: {}
+
+server:
+  port: 7870
+  host: "127.0.0.1"
+  startup_timeout_sec: 60
+  endpoints:
+    infer:  "POST /infer"
+    health: "GET /health"
+    unload: "POST /unload"
+    info:   "GET /info"
+
+environment:
+  python_version: "3.11"
+  requirements_file: requirements.txt
+  venv_path: .venv
+
+defaults:
+  prefix: "echo: "
+
+param_schema:
+  text:
+    type: str
+    label: "Text"
+    description: "Text to echo back."
+  prefix:
+    type: str
+    label: "Prefix"
+    description: "String prepended to the echoed text."
+
+meta:
+  license: MIT
+  notes: "Zero-ML CPU stub for smoke-testing the modelrack infer path without a GPU."

@@ -7,19 +7,55 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **API models (`backend: api`)** — models served by a cloud provider now run
+  **in-process** via a provider adapter (no subprocess, venv, or weights), routed by
+  `ModelRack.infer` alongside local models and returning the same `{success, data, error}`
+  envelope. Ships an **Anthropic (Claude)** provider; the layer is pluggable
+  (`register_provider`) for OpenAI/Google/etc. Normalized `{messages, max_tokens, system}`
+  surface plus a `provider_params` passthrough for provider-native features (extended
+  thinking, tools, sampling). Credentials are **references** (`api_key_env`) resolved from
+  the environment — never stored. Provider SDKs are optional extras
+  (`pip install 'modelrack[anthropic]'`). See docs/config-schema.md#api-models.
 - Complete, working `server.py` for **all 10 example models** (previously only
   `wan-2.2-i2v` and `qwen3-tts`): `z-image-turbo`, `qwen-image`, `qwen-image-edit`,
   `chatterbox`, `qwen2.5-vl`, `qwen3-omni`, `qwen3.6`, `qwen3-coder`. Each `load_model()`/
   `run_inference()` is grounded in the model's own card (diffusers / transformers / vLLM / TTS).
+- **Shared venvs** — models may declare `environment.shared_venv: <name>` to reuse one
+  venv (at `<MODELS_DIR>/_shared_venvs/<name>`) across several compatible models instead
+  of building one venv per model. `setup` installs each model's requirements into the
+  shared venv and **warns on a Python-version mismatch**; `--force` reinstalls into a
+  shared venv rather than deleting it. Lets you build heavy deps (e.g. torch) once and
+  share them across models with compatible dependency stacks.
+- **Custom package index for `setup`** — `environment.pip_extra_index_url` (str or list)
+  and the machine-wide `MODELRACK_PIP_EXTRA_INDEX_URL` env var are passed to `uv pip
+  install` as `--extra-index-url`, so a model's deps (e.g. a CUDA `torch` build) can be
+  pulled from a non-PyPI wheel index. See docs/config-schema.md#gpu-specific-wheels.
+- A zero-dependency **CPU smoke-test model** (no torch, no weights) that returns canned
+  output, so the full hub → server → envelope infer path can be validated **without a
+  GPU** before touching real models.
 - README: "Included example models" table and a "Using models in your app" guide.
 
 ### Changed
 - `POST /infer/{id}` now passes the model server's `{success, data, error}` envelope through
   as-is (no double-wrapping), matching the Python `hub.infer()` shape.
+- `start` now falls back to a nearby free port when a model's configured port is
+  unavailable — whether already in use or **OS-reserved** (e.g. Windows/Hyper-V excluded
+  port ranges) — instead of failing. The hub tracks the actual port, so routing is
+  unaffected.
+- The example **TTS model** now exposes the full sampling controls in its `param_schema`
+  and server — guidance weight, temperature, repetition penalty, min-p, top-p and seed
+  (multilingual) — with sampling args guarded by the installed library's `generate()`
+  signature.
 
 ### Fixed
 - CI test collection under a bare `pytest` invocation (`pythonpath = ["."]`), so
   `from tests.conftest import ...` resolves on the runners.
+- The multilingual TTS example server passed an unsupported keyword argument to the
+  library's `from_pretrained()`; removed so it loads on the current release
+  (verified on-GPU).
+- The TTS example's requirements omitted `setuptools`, which its watermarker dependency
+  imports for `pkg_resources` (removed from setuptools 81+ and absent from minimal uv
+  venvs); pinned `setuptools<81` so a fresh setup loads (verified on-GPU).
 
 ## [0.1.0] — 2026-07-02
 

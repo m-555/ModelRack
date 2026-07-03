@@ -16,7 +16,7 @@ This is the **base layer** — sacred, never written by apps. Apps layer overrid
 | `weights` | local | Map of role → path relative to the model folder. `main` is required and validated; others are optional. For diffusers/transformers models, point `main` at the `weights/` directory. |
 | `hardware` | | `min_vram_gb`, `recommended_vram_gb`, `dtype`, `device`. |
 | `server` | local | `port` (unique, reserved range 7800–7899), `host`, `startup_timeout_sec`, `endpoints`. |
-| `environment` | local | `python_version`, `requirements_file`, `venv_path`. |
+| `environment` | local | `python_version`, `requirements_file`, `venv_path`, optional `shared_venv` (see [Sharing a venv](#sharing-a-venv-across-models)), optional `pip_extra_index_url` (see [GPU-specific wheels](#gpu-specific-wheels-eg-pytorch-cuda)). |
 | `defaults` | | Default runtime parameter values (the base of the 3-layer merge). |
 | `param_schema` | | UI-renderable description of every editable parameter. |
 | `load_hints` | | Framework/pipeline/class + HF repo — hints for `server.py`. |
@@ -53,6 +53,96 @@ base config.yaml   →   app overrides (model_overrides.yaml)   →   runtime UI
 
 `param_schema`, `load_hints` and `weights` come from the base config only — overrides apply
 to `defaults`, `hardware`, `serving`, etc.
+
+## Sharing a venv across models
+
+By default each model gets its own isolated `.venv` (`environment.venv_path`, default
+`.venv`, inside the model folder). To reuse **one** venv across several models with
+compatible dependency stacks — building heavy deps like torch only once — set:
+
+```yaml
+environment:
+  python_version: "3.11"
+  requirements_file: requirements.txt
+  shared_venv: torch-cuda        # -> <MODELS_DIR>/_shared_venvs/torch-cuda
+```
+
+Every model that names the same `shared_venv` reuses that one environment. `modelrack
+setup <id>` creates the shared venv on first use and installs each model's requirements
+into it (union of requirements); `--force` reinstalls into it rather than deleting it
+(so peers aren't broken). Shared venvs live under `<MODELS_DIR>/_shared_venvs/` and are
+git-ignored.
+
+**Caveats — sharing only works when the stacks are compatible.** A shared venv holds one
+version of each package, so models needing conflicting versions (e.g. different pinned
+`transformers`/`diffusers`, or a forked library) must use **separate** shared venvs.
+`setup` warns when an existing shared venv's Python differs from a model's
+`python_version`; hard dependency conflicts surface at install time. When in doubt, group
+models by dependency stack (one shared venv per compatible group) rather than forcing all
+into one.
+
+## GPU-specific wheels (e.g. PyTorch CUDA)
+
+`modelrack setup` installs a model's `requirements.txt` from PyPI by default — which on
+many platforms resolves `torch` to the **CPU** build. For a GPU that needs a specific CUDA
+build, point `setup` at an extra wheel index:
+
+- **Machine-wide** (recommended — keeps the choice out of portable configs):
+  ```bash
+  export MODELRACK_PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu128
+  modelrack setup <id>
+  ```
+- **Per-model** (in `config.yaml`, when a model genuinely needs its own index):
+  ```yaml
+  environment:
+    pip_extra_index_url: https://download.pytorch.org/whl/cu128   # str or list
+  ```
+
+Both are passed to `uv pip install` as `--extra-index-url`. To *pin* a CUDA build you still
+need the local version in requirements (e.g. `torch==2.8.0+cu128`), which is machine-specific
+— so for a shared GPU stack the cleanest recipe is: **build the CUDA `torch` once into a
+[shared venv](#sharing-a-venv-across-models), then `setup` each model into it** (the extra
+index/pin lives in that one build, and models install the rest of their deps on top).
+
+## API models (`backend: api`)
+
+Not every model is local. An **API model** is served by a cloud provider (Anthropic,
+OpenAI, Google/Vertex, …) — modelrack calls it **in-process** (no subprocess, no venv,
+no weights) via a provider adapter. Declare it in `registry.yaml`:
+
+```yaml
+models:
+  claude-opus:
+    type: language
+    backend: api
+    provider: anthropic          # selects the provider adapter
+    api_model_id: claude-opus-4-8 # the provider's own model id
+    tags: [language, claude]
+```
+
+A `config.yaml` is **optional** for API models — add one only for `defaults` and a
+`param_schema` (to drive UIs); there are no `weights`, `server`, or `environment` fields.
+
+**Credentials — references, never secrets.** A model declares the *name* of the env var
+holding its key; modelrack never stores the key itself:
+
+```yaml
+# in the API model's config.yaml (optional)
+api_key_env: ANTHROPIC_API_KEY   # default per provider; the value lives in the environment
+```
+
+If the env var is unset, the provider's SDK falls back to its own credential chain (env
+vars, CLI login profiles, workload identity) — so the gateway holds provider keys
+server-side while callers only ever hold a modelrack key.
+
+**Normalized payload + native escape hatch.** For `language` / `vision_language` models
+the normalized request is `{messages, max_tokens, system?}`; provider-native features
+(e.g. extended thinking, tools, sampling params) go under `provider_params` and pass
+straight through to the provider SDK. The response is normalized to
+`{text, model, stop_reason, usage}`.
+
+Install the provider SDK as an extra: `pip install 'modelrack[anthropic]'` (or
+`modelrack[api]`).
 
 ## `serving` by engine
 
