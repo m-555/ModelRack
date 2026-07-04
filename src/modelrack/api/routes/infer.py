@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Iterator
 from typing import Any
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from modelrack import ModelRack
@@ -31,3 +33,23 @@ def infer(
         return hub.infer(model_id, body.payload, auto_start=body.auto_start, timeout=body.timeout)
     except ModelRackError as exc:
         return fail(str(exc), status_code=502)
+
+
+@router.post("/{model_id}/stream", response_model=None)
+def infer_stream(
+    model_id: str, body: InferBody, hub: ModelRack = Depends(get_hub)
+) -> StreamingResponse:
+    """Stream generated text as Server-Sent Events: `data: {"text": "<chunk>"}` per
+    chunk, terminated by `data: [DONE]`. Errors arrive as `data: {"error": "..."}`."""
+
+    def _sse() -> Iterator[str]:
+        try:
+            for chunk in hub.stream_infer(
+                model_id, body.payload, auto_start=body.auto_start, timeout=body.timeout
+            ):
+                yield f"data: {json.dumps({'text': chunk})}\n\n"
+            yield "data: [DONE]\n\n"
+        except ModelRackError as exc:
+            yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+
+    return StreamingResponse(_sse(), media_type="text/event-stream")

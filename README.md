@@ -286,10 +286,14 @@ GET  /models/{id}/schema · GET /models/{id}/validate · POST /models/scan
 GET  /processes · GET /processes/{id}
 POST /processes/{id}/{setup|start|stop|restart|unload}
 POST /infer/{id}          body: {"payload": {...}, "auto_start": true, "timeout": 300}
+POST /infer/{id}/stream   same body → Server-Sent Events (streamed text)
 ```
 
 `POST /infer/{id}` passes the model server's `{success, data, error}` envelope straight
 through (no extra wrapping), so its shape matches every other endpoint.
+`POST /infer/{id}/stream` streams generated text as SSE — `data: {"text": "<chunk>"}`
+per chunk, terminated by `data: [DONE]` (for models whose server implements streaming;
+also available in Python via `hub.stream_infer(id, payload)`).
 
 ## How it fits together
 

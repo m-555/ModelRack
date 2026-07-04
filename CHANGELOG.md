@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Streaming inference (SSE)** — `POST /infer/{id}/stream` and `ModelRack.stream_infer()`
+  yield generated text token-by-token as Server-Sent Events (`data: {"text": ...}` per
+  chunk, terminated by `data: [DONE]`). Local model servers opt in by implementing a
+  `run_inference_stream` generator (exposed as the server's `/infer_stream`); the
+  transformers VLM/LLM reference server ships it via `TextIteratorStreamer`. API models
+  yield the full result once for now (provider token-streaming is a future addition).
+- **Google (Gemini) API provider** — `backend: api`, `provider: google`. Supports Vertex
+  AI (Application Default Credentials via `GOOGLE_APPLICATION_CREDENTIALS`; non-secret
+  `project`/`location`) and AI Studio API keys. Optional extra: `modelrack[google]`.
 - **LoRA adapters for diffusers models (`serving.loras`)** — load one or more LoRA
   files at startup, each targeting a chosen transformer with a blend weight. Notably
   enables **step-distillation LoRAs**: a diffusion model can then generate in ~4 steps at

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from collections.abc import Iterator
 from typing import Any
 
 import httpx
@@ -41,6 +43,40 @@ class InferenceClient:
                 f"Inference on '{model_id}' failed ({resp.status_code}): {resp.text}"
             )
         return resp.json()
+
+    def stream_infer(
+        self,
+        model_id: str,
+        payload: dict[str, Any],
+        auto_start: bool = True,
+        timeout: int = 300,
+    ) -> Iterator[str]:
+        """Yield generated text chunks from the model's ``/infer_stream`` (SSE).
+
+        Raises :class:`InferenceError` if the model server doesn't support streaming
+        (HTTP 501) or errors mid-stream."""
+        url = self._require_url(model_id, auto_start)
+        try:
+            with httpx.stream(
+                "POST", f"{url}/infer_stream", json={"payload": payload}, timeout=timeout
+            ) as resp:
+                if resp.status_code != 200:
+                    resp.read()
+                    raise InferenceError(
+                        f"Streaming on '{model_id}' failed ({resp.status_code}): {resp.text}"
+                    )
+                for line in resp.iter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data = line[len("data: ") :]
+                    if data == "[DONE]":
+                        return
+                    obj = json.loads(data)
+                    if "error" in obj:
+                        raise InferenceError(f"Streaming on '{model_id}' errored: {obj['error']}")
+                    yield obj.get("text", "")
+        except httpx.HTTPError as exc:
+            raise InferenceError(f"Stream request to '{model_id}' failed: {exc}") from exc
 
     def unload(self, model_id: str) -> dict[str, Any]:
         """Free the model from VRAM without stopping its process."""

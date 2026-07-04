@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import argparse
 import gc
+import json
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +22,7 @@ import uvicorn
 import yaml
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 # ── Customize these two functions ─────────────────────────────────────────────
@@ -62,6 +65,22 @@ def run_inference(model: Any, payload: dict[str, Any]) -> dict[str, Any]:
     raise NotImplementedError("Customize run_inference() for your VLM")
 
 
+# Optional: define ``run_inference_stream`` to enable token streaming (POST /infer_stream,
+# and hub.stream_infer). Yield incremental text chunks. Example (transformers):
+#     from threading import Thread
+#     from transformers import TextIteratorStreamer
+#     def run_inference_stream(model, payload):
+#         vlm, processor = model
+#         inputs = ...  # same prep as run_inference()
+#         streamer = TextIteratorStreamer(processor.tokenizer, skip_prompt=True,
+#                                         skip_special_tokens=True)
+#         Thread(target=vlm.generate, kwargs=dict(**inputs, streamer=streamer,
+#                max_new_tokens=payload.get("max_tokens", 512)), daemon=True).start()
+#         for chunk in streamer:
+#             if chunk:
+#                 yield chunk
+
+
 # ── FastAPI scaffolding — do not modify below this line ───────────────────────
 
 app = FastAPI(title="modelrack model server")
@@ -87,6 +106,28 @@ def infer(request: InferRequest) -> dict[str, Any]:
         return {"success": True, "data": run_inference(model, merged), "error": None}
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/infer_stream")
+def infer_stream(request: InferRequest) -> StreamingResponse:
+    """SSE stream (`data: {"text": "<chunk>"}` … `data: [DONE]`). Available only if the
+    model defines ``run_inference_stream``."""
+    global model
+    if "run_inference_stream" not in globals():
+        raise HTTPException(status_code=501, detail="streaming not supported by this model")
+    if model is None:
+        model = load_model(model_dir, config)
+    merged = {**config.get("defaults", {}), **request.payload}
+
+    def _sse() -> Iterator[str]:
+        try:
+            for chunk in run_inference_stream(model, merged):  # noqa: F821 - guarded above
+                yield f"data: {json.dumps({'text': chunk})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as exc:  # noqa: BLE001
+            yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+
+    return StreamingResponse(_sse(), media_type="text/event-stream")
 
 
 @app.get("/health")

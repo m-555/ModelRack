@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import builtins
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -152,6 +152,24 @@ class ModelRack:
         if self._is_api_model(model_id):
             return self._api_infer(model_id, payload)
         return self.client.infer(model_id, payload, auto_start=auto_start, timeout=timeout)
+
+    def stream_infer(
+        self,
+        model_id: str,
+        payload: dict[str, Any],
+        auto_start: bool = True,
+        timeout: int = 300,
+    ) -> Iterator[str]:
+        """Yield generated text chunks. Local models stream token-by-token from their
+        ``/infer_stream`` endpoint; API models yield the full result once (provider
+        streaming is a future addition)."""
+        if self._is_api_model(model_id):
+            data = self._api_infer(model_id, payload).get("data") or {}
+            yield (data.get("text") or "") if isinstance(data, dict) else str(data)
+            return
+        yield from self.client.stream_infer(
+            model_id, payload, auto_start=auto_start, timeout=timeout
+        )
 
     def _is_api_model(self, model_id: str) -> bool:
         try:
