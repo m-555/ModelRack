@@ -1,3 +1,0 @@
-# Download weights here, e.g.:
-#   huggingface-cli download Qwen/Qwen3.6-35B-A3B --local-dir weights
-# Weight files are gitignored; this placeholder keeps the folder.

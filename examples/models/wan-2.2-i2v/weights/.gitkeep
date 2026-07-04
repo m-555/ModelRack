@@ -1,3 +1,0 @@
-# Place the model's weight files here (e.g. `huggingface-cli download
-# Wan-AI/Wan2.2-I2V-A14B-Diffusers --local-dir weights`).
-# Weight files (*.safetensors, etc.) are gitignored; this folder is kept as a placeholder.

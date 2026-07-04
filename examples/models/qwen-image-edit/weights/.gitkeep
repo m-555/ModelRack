@@ -1,3 +1,0 @@
-# Download weights here, e.g.:
-#   huggingface-cli download Qwen/Qwen-Image-Edit-2511 --local-dir weights
-# Weight files are gitignored; this placeholder keeps the folder.

@@ -1,3 +1,0 @@
-# Download weights here, e.g.:
-#   huggingface-cli download Qwen/Qwen2.5-VL-72B-Instruct --local-dir weights
-# Weight files are gitignored; this placeholder keeps the folder.

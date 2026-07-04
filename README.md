@@ -78,38 +78,29 @@ modelrack setup qwen-image
 modelrack infer qwen-image --payload '{"prompt": "a red fox in falling snow"}'
 ```
 
-> The bundled `examples/models` ship real, comprehensive configs for 10 models
-> (WAN 2.2 I2V, Z-Image-Turbo, Qwen-Image, Qwen-Image-Edit, Chatterbox, Qwen3-TTS,
-> Qwen2.5-VL, Qwen3-Omni, Qwen3.6, Qwen3-Coder). Weights are not included — download them
-> into each model's `weights/` folder.
->
-> **All 10 example models ship a complete, working `server.py`** with real
-> `load_model()`/`run_inference()` (diffusers / transformers / vLLM / TTS, grounded in each
-> model card) — add weights, run `modelrack setup <id>`, and they work out of the box. Use
-> them as-is, or as reference implementations when adding your own models (see
-> [docs/writing-a-server.md](docs/writing-a-server.md)).
+> **Bring your own models.** modelrack ships no weights or model definitions — your
+> `MODELS_DIR` is a local, per-deployment working area. Each local model is a folder with a
+> `config.yaml` + `server.py` + `requirements.txt` (+ `weights/`); API models
+> (`backend: api`) need only a small `config.yaml`. See the layout guide in
+> [examples/models/README.md](examples/models/README.md) and
+> [docs/writing-a-server.md](docs/writing-a-server.md), then `modelrack scan` to register
+> what's on disk.
 
-### Included example models
+### Adding models
 
-| model_id | type | framework | HF repo |
-|---|---|---|---|
-| `wan-2.2-i2v` | video_generation | diffusers `WanImageToVideoPipeline` | Wan-AI/Wan2.2-I2V-A14B-Diffusers |
-| `z-image-turbo` | image_generation | diffusers `ZImagePipeline` | Tongyi-MAI/Z-Image-Turbo |
-| `qwen-image` | image_generation | diffusers `DiffusionPipeline` | Qwen/Qwen-Image-2512 |
-| `qwen-image-edit` | image_edit | diffusers `QwenImageEditPlusPipeline` | Qwen/Qwen-Image-Edit-2511 |
-| `chatterbox` | tts | `ChatterboxMultilingualTTS` | ResembleAI/chatterbox |
-| `qwen3-tts` | tts | `qwen_tts.Qwen3TTSModel` | Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice |
-| `qwen2.5-vl` | vision_language | transformers `Qwen2_5_VLForConditionalGeneration` | Qwen/Qwen2.5-VL-72B-Instruct |
-| `qwen3-omni` | omni | transformers `Qwen3OmniMoeForConditionalGeneration` | Qwen/Qwen3-Omni-30B-A3B-Instruct |
-| `qwen3.6` | language | vLLM | Qwen/Qwen3.6-35B-A3B |
-| `qwen3-coder` | code | vLLM (FP8) | Qwen/Qwen3-Coder-Next-FP8 |
+modelrack is model-agnostic — it drives **diffusers** (image/video/edit), **transformers**
+(VLM/omni/TTS), and **vLLM** (LLM/code) locals, plus in-process **API** providers
+(Anthropic, Google, …). Server templates for each engine live in
+[src/modelrack/templates/servers](src/modelrack/templates/servers); copy one, fill in
+`load_model()` / `run_inference()`, and point `config.yaml` at your weights. Full walkthrough:
+[docs/adding-a-model.md](docs/adding-a-model.md).
 
 ### Smoke-test without a GPU
 
-A bundled zero-dependency **CPU smoke-test model** (no torch, no weights) returns canned
+The `echo` template (a zero-dependency CPU model — no torch, no weights) returns canned
 output, so you can verify the full hub → server → envelope path on any machine before
-touching real models — run `modelrack list` to find it, then `modelrack setup <id>` and
-`modelrack infer <id> --payload '{"text": "hi"}'`.
+touching real models: drop it into `MODELS_DIR`, then `modelrack setup echo` and
+`modelrack infer echo --payload '{"text": "hi"}'`.
 
 ## Python API
 

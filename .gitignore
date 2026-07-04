@@ -51,6 +51,13 @@ outputs/
 *.gguf
 *.onnx
 
+# ─── Local models directory (bring-your-own; not versioned) ───────────────
+# examples/models is used as the on-disk MODELS_DIR — model definitions, weights,
+# venvs, loras and the generated registry.yaml are a local working dir, specific
+# to a deployment, and are NOT tracked. Only the placeholder guide is committed.
+/examples/models/*
+!/examples/models/README.md
+
 # ─── Environment / secrets ────────────────────────────────────────────────
 .env
 .env.*
