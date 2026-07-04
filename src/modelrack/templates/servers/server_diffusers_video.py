@@ -28,12 +28,26 @@ from pydantic import BaseModel
 def load_model(model_dir: Path, config: dict[str, Any]) -> Any:
     """Load the model into VRAM and return the pipeline/model object.
 
-    Example (WAN 2.2 I2V):
+    Example (image-to-video):
         from diffusers import WanImageToVideoPipeline
         pipe = WanImageToVideoPipeline.from_pretrained(
             str(model_dir / "weights"), torch_dtype=torch.bfloat16
         ).to("cuda")
         return pipe
+
+    Optional fp8 (serving.quantization: fp8) to fit smaller GPUs — quantize the heavy
+    transformer(s) on load with torchao (per-shard, low peak host RAM):
+        from diffusers import TorchAoConfig
+        from torchao.quantization import Float8WeightOnlyConfig
+        q = TorchAoConfig(Float8WeightOnlyConfig())
+        transformer = SomeTransformer.from_pretrained(
+            str(model_dir / "weights"), subfolder="transformer",
+            quantization_config=q, torch_dtype=torch.bfloat16,
+        )
+        pipe = SomePipeline.from_pretrained(
+            str(model_dir / "weights"), transformer=transformer, torch_dtype=torch.bfloat16
+        )
+        pipe.enable_model_cpu_offload()
     """
     raise NotImplementedError("Customize load_model() for your video model")
 

@@ -144,9 +144,47 @@ straight through to the provider SDK. The response is normalized to
 Install the provider SDK as an extra: `pip install 'modelrack[anthropic]'` (or
 `modelrack[api]`).
 
+## Quantization (`serving.quantization`)
+
+Large generative models can be **quantized on load** so they fit smaller GPUs/hosts:
+
+```yaml
+serving:
+  engine: diffusers
+  enable_model_cpu_offload: true
+  quantization: fp8      # torchao float8 weight-only
+```
+
+`fp8` stores the heavy weights in 8-bit (≈ half the size/host-RAM of bf16) and up-casts
+for compute — visually near-identical to bf16 for diffusion. Quantization is applied
+**per shard at load time**, so peak host memory stays low (the full bf16 is never
+materialized), letting a model that otherwise won't load run on a commodity GPU. Requires
+the optional `torchao` package in the model's environment (add it to `requirements.txt`).
+Weights on disk stay in their original precision; the server quantizes each time it starts.
+
+## LoRA adapters (`serving.loras`)
+
+Diffusers models can load one or more LoRA adapters at startup:
+
+```yaml
+serving:
+  loras:
+    - path: loras/<name>/high_noise_model.safetensors
+      target: transformer       # or transformer_2 (multi-transformer models)
+      weight: 1.0
+```
+
+Each entry names a LoRA file (relative to the model folder), which transformer it
+attaches to, and its blend `weight`. A common use is a **step-distillation LoRA**, which
+lets a diffusion model produce a good result in ~4 steps at guidance 1.0 instead of ~40
+steps with CFG — a large speedup. Pair it with matching `defaults`
+(`num_inference_steps`, `guidance_scale`). Requires the optional `peft` package in the
+model's environment.
+
 ## `serving` by engine
 
-- **diffusers** (image/video/edit): `engine: diffusers`, `enable_model_cpu_offload`.
+- **diffusers** (image/video/edit): `engine: diffusers`, `enable_model_cpu_offload`,
+  optional `quantization` (see above).
 - **transformers** (VLM/omni/TTS): `engine: transformers`, `attn_implementation`,
   `tensor_parallel_size`.
 - **vLLM** (LLM/code, large VLMs): `engine: vllm`, `tensor_parallel_size`, `max_model_len`,

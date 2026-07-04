@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from modelrack.providers.anthropic_provider import AnthropicProvider
 from modelrack.providers.base import Provider, ProviderError
+from modelrack.providers.google_provider import GoogleProvider
 
 _PROVIDERS: dict[str, type[Provider]] = {
     "anthropic": AnthropicProvider,
+    "google": GoogleProvider,
 }
 _INSTANCES: dict[str, Provider] = {}
 

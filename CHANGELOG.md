@@ -7,6 +7,17 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **LoRA adapters for diffusers models (`serving.loras`)** — load one or more LoRA
+  files at startup, each targeting a chosen transformer with a blend weight. Notably
+  enables **step-distillation LoRAs**: a diffusion model can then generate in ~4 steps at
+  guidance 1.0 instead of ~40 steps with CFG (a large speedup) by pairing the LoRA with
+  matching `defaults`. Requires the optional `peft` package. See docs/config-schema.md#lora-adapters.
+- **On-load `fp8` quantization for diffusers models** — `serving.quantization: fp8`
+  applies torchao float8 weight-only quantization to a model's heavy weights as they load
+  (per-shard, so the full bf16 is never materialized in host RAM). This lets a large
+  generative model that otherwise won't fit load and run on a commodity GPU (~half the
+  size/host-RAM of bf16), at quality visually near-identical to bf16. Requires the optional
+  `torchao` package in the model's environment. See docs/config-schema.md#quantization.
 - **API models (`backend: api`)** — models served by a cloud provider now run
   **in-process** via a provider adapter (no subprocess, venv, or weights), routed by
   `ModelRack.infer` alongside local models and returning the same `{success, data, error}`
@@ -16,10 +27,10 @@ All notable changes to this project are documented here. The format is based on
   thinking, tools, sampling). Credentials are **references** (`api_key_env`) resolved from
   the environment — never stored. Provider SDKs are optional extras
   (`pip install 'modelrack[anthropic]'`). See docs/config-schema.md#api-models.
-- Complete, working `server.py` for **all 10 example models** (previously only
-  `wan-2.2-i2v` and `qwen3-tts`): `z-image-turbo`, `qwen-image`, `qwen-image-edit`,
-  `chatterbox`, `qwen2.5-vl`, `qwen3-omni`, `qwen3.6`, `qwen3-coder`. Each `load_model()`/
-  `run_inference()` is grounded in the model's own card (diffusers / transformers / vLLM / TTS).
+- Reference server implementations for every engine (diffusers image/video/edit,
+  transformers VLM/omni/TTS, vLLM LLM/code) with real `load_model()` / `run_inference()`,
+  so a new model is a copy-and-fill-in away. `MODELS_DIR` is bring-your-own — model
+  definitions and weights live in a local, per-deployment directory (not versioned).
 - **Shared venvs** — models may declare `environment.shared_venv: <name>` to reuse one
   venv (at `<MODELS_DIR>/_shared_venvs/<name>`) across several compatible models instead
   of building one venv per model. `setup` installs each model's requirements into the
@@ -33,7 +44,8 @@ All notable changes to this project are documented here. The format is based on
 - A zero-dependency **CPU smoke-test model** (no torch, no weights) that returns canned
   output, so the full hub → server → envelope infer path can be validated **without a
   GPU** before touching real models.
-- README: "Included example models" table and a "Using models in your app" guide.
+- README + `examples/models/README.md`: a "bring your own models" guide and a
+  models-directory layout reference.
 
 ### Changed
 - `POST /infer/{id}` now passes the model server's `{success, data, error}` envelope through
