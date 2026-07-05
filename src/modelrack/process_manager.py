@@ -282,6 +282,24 @@ class ProcessManager:
         self.stop(model_id)
         return self.start(model_id)
 
+    def reset(self) -> None:
+        """Stop every tracked model subprocess and clear state.
+
+        Called on a fresh ``serve`` startup so orphaned model servers left by a
+        previous hub instance (which held their GPU VRAM) are killed — otherwise
+        a hub restart leaves zombies that pile up and OOM the card. The recovered
+        records carry PIDs from the old instance; ``_terminate`` PID-kills them.
+        """
+        for model_id in list(self._processes.keys()):
+            rec = self._processes.get(model_id)
+            if rec is not None:
+                logger.warning("Startup cleanup: killing orphaned server for %s (pid %s)",
+                               model_id, rec.pid)
+                self._terminate(model_id, rec.pid, graceful=False)
+        self._processes.clear()
+        self._popen.clear()
+        self._persist()
+
     # --- Status ---------------------------------------------------------------
     def status(self, model_id: str | None = None) -> list[ServerProcess]:
         """Return live status, pruning any processes whose PID has died."""
