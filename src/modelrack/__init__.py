@@ -189,11 +189,19 @@ class ModelRack:
         )
 
     def _evict_for(self, model_id: str) -> None:
-        """Single-GPU VRAM guard: free every resident model except the
+        """Single-GPU VRAM guard: fully free every resident model except the
         ``_max_resident`` most-recently-used (plus the incoming ``model_id``).
 
-        Unloading frees the model's VRAM but leaves its subprocess alive, so a
-        later infer reloads it quickly. No-op when MODELRACK_MAX_RESIDENT=0.
+        Eviction **STOPS** the other model servers (kills the subprocess) rather
+        than calling their ``/unload``. A plain ``/unload`` is unreliable — e.g.
+        Fish runs its LLM in a background thread that keeps the model on the GPU,
+        so ``model = None`` frees nothing and its ~23 GB stays resident. Killing
+        the process is the only way to guarantee the VRAM (weights + KV cache +
+        CUDA context) is reclaimed on a tight card. The model respawns on its
+        next infer (weights reload; torch.compile hits the on-disk inductor
+        cache, so recompiles are cheap). No-op when MODELRACK_MAX_RESIDENT=0.
+
+        Set MODELRACK_EVICT_MODE=unload to keep the old (subprocess-alive) behaviour.
         """
         # Update recency (most-recent last).
         if model_id in self._recent:
@@ -203,15 +211,20 @@ class ModelRack:
         if self._max_resident <= 0:
             return
 
+        stop_mode = os.getenv("MODELRACK_EVICT_MODE", "stop").strip().lower() != "unload"
         keep = set(self._recent[-self._max_resident:]) | {model_id}
         for rec in self.processes.status():
             if rec.model_id not in keep:
                 try:
-                    self.client.unload(rec.model_id)
-                    logger.warning("VRAM guard: unloaded %s to make room for %s",
+                    if stop_mode:
+                        self.processes.stop(rec.model_id, graceful=False)
+                    else:
+                        self.client.unload(rec.model_id)
+                    logger.warning("VRAM guard: %s %s to make room for %s",
+                                   "stopped" if stop_mode else "unloaded",
                                    rec.model_id, model_id)
                 except Exception as exc:  # noqa: BLE001 - never block an infer on cleanup
-                    logger.warning("VRAM guard: failed to unload %s: %s", rec.model_id, exc)
+                    logger.warning("VRAM guard: failed to free %s: %s", rec.model_id, exc)
 
     def _is_api_model(self, model_id: str) -> bool:
         try:
