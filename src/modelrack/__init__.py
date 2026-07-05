@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import builtins
 import logging
+import os
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,8 @@ from modelrack.validator import ConfigValidator
 from modelrack.watcher import ConfigWatcher
 
 __version__ = "0.1.0"
+
+logger = logging.getLogger("modelrack")
 
 __all__ = [
     "ModelRack",
@@ -77,6 +80,18 @@ class ModelRack:
         )
         self.client = InferenceClient(self.processes)
         self._watcher: ConfigWatcher | None = None
+
+        # VRAM policy: keep at most this many models resident on the GPU at once.
+        # Before inferring model X, the VRAM of every other-than-the-N-most-recent
+        # model is freed (its subprocess stays alive for a fast reload). Default 1
+        # — a single shared GPU can't host several large models at once (OOM/BSOD).
+        # Set MODELRACK_MAX_RESIDENT=0 to disable eviction (keep everything loaded).
+        try:
+            self._max_resident = int(os.getenv("MODELRACK_MAX_RESIDENT", "1"))
+        except ValueError:
+            self._max_resident = 1
+        # LRU-ish recency of models actually infer'd this session.
+        self._recent: list[str] = []
 
     # --- Config resolution ----------------------------------------------------
     def resolve(
@@ -151,6 +166,7 @@ class ModelRack:
         # HTTP to their subprocess server. Both return the {success,data,error} envelope.
         if self._is_api_model(model_id):
             return self._api_infer(model_id, payload)
+        self._evict_for(model_id)
         return self.client.infer(model_id, payload, auto_start=auto_start, timeout=timeout)
 
     def stream_infer(
@@ -167,9 +183,35 @@ class ModelRack:
             data = self._api_infer(model_id, payload).get("data") or {}
             yield (data.get("text") or "") if isinstance(data, dict) else str(data)
             return
+        self._evict_for(model_id)
         yield from self.client.stream_infer(
             model_id, payload, auto_start=auto_start, timeout=timeout
         )
+
+    def _evict_for(self, model_id: str) -> None:
+        """Single-GPU VRAM guard: free every resident model except the
+        ``_max_resident`` most-recently-used (plus the incoming ``model_id``).
+
+        Unloading frees the model's VRAM but leaves its subprocess alive, so a
+        later infer reloads it quickly. No-op when MODELRACK_MAX_RESIDENT=0.
+        """
+        # Update recency (most-recent last).
+        if model_id in self._recent:
+            self._recent.remove(model_id)
+        self._recent.append(model_id)
+
+        if self._max_resident <= 0:
+            return
+
+        keep = set(self._recent[-self._max_resident:]) | {model_id}
+        for rec in self.processes.status():
+            if rec.model_id not in keep:
+                try:
+                    self.client.unload(rec.model_id)
+                    logger.warning("VRAM guard: unloaded %s to make room for %s",
+                                   rec.model_id, model_id)
+                except Exception as exc:  # noqa: BLE001 - never block an infer on cleanup
+                    logger.warning("VRAM guard: failed to unload %s: %s", rec.model_id, exc)
 
     def _is_api_model(self, model_id: str) -> bool:
         try:
