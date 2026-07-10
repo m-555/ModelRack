@@ -7,6 +7,17 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **qwen3-tts-clone example model** — Qwen3-TTS-12Hz-1.7B-**Base** voice-clone
+  counterpart to the CustomVoice model (port 7811, Apache-2.0). `/infer` takes
+  `text` + `ref_audio_path` (absolute path on the shared filesystem, same
+  convention as chatterbox/fish) + optional `ref_text`; with a transcript it
+  uses high-fidelity ICL cloning and **auto-falls back to x-vector-only mode
+  when the transcript is empty** (the qwen_tts package would otherwise raise).
+  The reference clip is capped to the leading `serving.max_reference_seconds`
+  (15 s), and `seed >= 0` gives reproducible sampling via `torch.manual_seed`.
+  Shares one venv with qwen3-tts via `environment.shared_venv: qwen-tts`
+  (identical dep stacks — torch built once, ~4.7 GB saved). Verified on-GPU
+  (ICL clone + x-vector fallback + process-manager start/stop).
 - **Streaming inference (SSE)** — `POST /infer/{id}/stream` and `ModelRack.stream_infer()`
   yield generated text token-by-token as Server-Sent Events (`data: {"text": ...}` per
   chunk, terminated by `data: [DONE]`). Local model servers opt in by implementing a
@@ -69,6 +80,21 @@ All notable changes to this project are documented here. The format is based on
   signature.
 
 ### Fixed
+- **qwen3-tts server dropped its sampling params** — `temperature`, `top_p`,
+  `max_new_tokens` and `seed` were declared in `config.yaml` but never passed to
+  `generate_custom_voice`, so they silently had no effect. Now forwarded
+  (verified against `qwen_tts._merge_generate_kwargs`: explicit values win),
+  with `seed >= 0` applied via `torch.manual_seed`.
+- **qwen3-tts / qwen3-tts-clone setup installed CPU-only torch on Windows** —
+  plain PyPI serves `+cpu` wheels; both models now pin `torch==2.11.0+cu128`
+  with the PyTorch cu128 index via `environment.pip_extra_index_url` and a
+  matching `--extra-index-url` line in their requirements files.
+- **qwen3-omni port collision** — its configured port 7808 was also fish-s2's;
+  moved to 7812.
+- **`validate` ignored `environment.shared_venv`** — `ConfigValidator.validate_venv`
+  checked only the per-model `.venv` path, so a model on a shared venv always
+  warned "venv not found" despite being fully set up. Now resolves through
+  `resolve_venv_exists` (shared-venv aware), like `setup`/`start` already did.
 - CI test collection under a bare `pytest` invocation (`pythonpath = ["."]`), so
   `from tests.conftest import ...` resolves on the runners.
 - The multilingual TTS example server passed an unsupported keyword argument to the

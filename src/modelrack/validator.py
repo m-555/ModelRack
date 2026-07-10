@@ -9,7 +9,7 @@ from modelrack.resolver import _check_param
 from modelrack.schemas.model_types import is_known_type
 from modelrack.schemas.resolved_model import ResolvedModel
 from modelrack.schemas.validation import ValidationResult
-from modelrack.utils.paths import venv_dir, venv_exists
+from modelrack.utils.paths import resolve_venv_dir, resolve_venv_exists
 
 REQUIRED_TOP_LEVEL = ("model_id", "type")
 _VERSION_RE = re.compile(r"^\d+(\.\d+){0,2}$")
@@ -100,7 +100,8 @@ class ConfigValidator:
         return result
 
     def validate_venv(self, resolved: ResolvedModel) -> ValidationResult:
-        """Check the model's isolated .venv exists and has a Python interpreter."""
+        """Check the model's venv (isolated or ``environment.shared_venv``) exists
+        and has a Python interpreter."""
         result = ValidationResult()
         if resolved.is_api:
             return result
@@ -109,18 +110,21 @@ class ConfigValidator:
             result.add_error("Resolved model has no model_dir")
             return result
 
-        venv_path = (resolved.environment or {}).get("venv_path", ".venv")
-        if venv_exists(model_dir, venv_path):
+        # Models live directly under MODELS_DIR, so the parent is the models
+        # root — needed to resolve a shared venv (_shared_venvs/<name>).
+        environment = resolved.environment or {}
+        models_dir = model_dir.parent
+        if resolve_venv_exists(models_dir, model_dir, environment):
             return result
 
         if (model_dir / "requirements.txt").exists():
             result.add_warning(
-                f".venv not found at {venv_dir(model_dir, venv_path)} - "
+                f"venv not found at {resolve_venv_dir(models_dir, model_dir, environment)} - "
                 f"run 'modelrack setup {resolved.model_id}' first."
             )
         else:
             result.add_warning(
-                f".venv not found and no requirements.txt present for {resolved.model_id}."
+                f"venv not found and no requirements.txt present for {resolved.model_id}."
             )
         return result
 

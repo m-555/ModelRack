@@ -165,7 +165,7 @@ user changed. Outputs follow these conventions (implemented in each model's `ser
 | Type | Example models | Key payload fields | `data` output |
 |---|---|---|---|
 | `video_generation` | wan-2.2-i2v | `prompt`, `image` (path/URL/base64), `num_frames`, `fps`, `seed` | `{output_path, width, height, num_frames, fps}` |
-| `tts` | qwen3-tts, chatterbox | `text`, `language`, `speaker`, `instruct` | `{audio_base64, sample_rate, encoding}` |
+| `tts` | qwen3-tts, qwen3-tts-clone, chatterbox, fish-s2 | `text`, `language`, `speaker`/`instruct` (custom-voice) or `ref_audio_path`/`ref_text` (clone), sampling params, `seed` | `{audio_base64, sample_rate, encoding}` |
 | `image_generation` | qwen-image, z-image-turbo | `prompt`, `negative_prompt`, `num_inference_steps`, `width`, `height` | `{image_base64}` |
 | `image_edit` | qwen-image-edit | `prompt`, `images` (list of base64) | `{image_base64}` |
 | `language` / `code` | qwen3.6, qwen3-coder | `messages` or `prompt`, `temperature`, `max_tokens` | `{text}` |
