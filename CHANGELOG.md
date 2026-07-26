@@ -7,6 +7,40 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **`audio_generation` model type** — text-to-audio generation (music, sound
+  effects) is now a first-class type with its own server template
+  (`templates/servers/server_audio_generation.py`) and base requirements, so
+  such a model plugs in the same way an image or video model does. It is
+  deliberately **separate from `tts`**: the two share nothing but a waveform
+  output — different inputs, different parameters, different server contract.
+  The template returns a generated file **by path** rather than base64, matching
+  the video template; a minute of 44.1 kHz stereo is ~10 MB, which is not
+  something to put through a JSON envelope. New `tests/test_model_types.py`
+  additionally asserts that *every* registered type resolves to templates that
+  actually exist on disk — a missing template previously surfaced only at
+  `modelrack setup` time, long after the mistake.
+- **stable-audio-3 example model** — 2B latent-diffusion text-to-audio
+  generator (port 7871) producing both music beds and sound effects from one
+  checkpoint. `/infer` takes `prompt` + `negative_prompt`, `duration_s`,
+  `steps`, `cfg_scale`, `sampler_type` and `seed`, and returns
+  `{output_path, sample_rate, duration_s, channels, seed}`. The server drives
+  whichever upstream inference library is installed and loads strictly from a
+  pre-downloaded `weights/` directory, rewriting the checkpoint's bundled
+  text-encoder reference to the local copy — otherwise loading reaches for the
+  network mid-startup. Output is peak-normalised before the WAV is written
+  (diffusion output is unbounded and clips loudly otherwise), and the generated
+  length is set from the requested duration rather than the config's full
+  window. Uses its own by-kind shared venv (`audio-cu128`) rather than joining
+  the diffusers venv, so the image/video models co-tenanting it cannot inherit a
+  dependency downgrade. GPU-verified: 20 s of audio in 2.3 s at 9.34 GB peak.
+
+### Known gap
+- **`setup` has no torch-index story.** It installs from the default PyPI index,
+  so a model pinning a CUDA build of PyTorch silently gets the CPU wheel and
+  runs on the processor with no error. Today the workaround is a manual
+  force-install from the appropriate `download.pytorch.org/whl/<cuda>` index
+  after `setup`. A per-model `environment.index_url` (or a torch-aware
+  `requirements` pass) would remove a footgun that costs an hour every time.
 - **qwen3-tts-clone example model** — Qwen3-TTS-12Hz-1.7B-**Base** voice-clone
   counterpart to the CustomVoice model (port 7811, Apache-2.0). `/infer` takes
   `text` + `ref_audio_path` (absolute path on the shared filesystem, same

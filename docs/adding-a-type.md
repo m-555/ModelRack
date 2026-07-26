@@ -11,8 +11,8 @@ A type maps to two defaults:
   on `modelrack setup`,
 - a **base requirements file** (`templates/requirements/<...>.txt`).
 
-Built-in types: `video_generation`, `image_generation`, `image_edit`, `tts`,
-`vision_language`, `language`, `code`, `omni`.
+Built-in types: `video_generation`, `image_generation`, `image_edit`,
+`audio_generation`, `tts`, `vision_language`, `language`, `code`, `omni`.
 
 ## Option A — register at runtime
 

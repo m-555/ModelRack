@@ -31,6 +31,7 @@ class Backend(str, Enum):
 VIDEO_GENERATION = "video_generation"
 IMAGE_GENERATION = "image_generation"
 IMAGE_EDIT = "image_edit"
+AUDIO_GENERATION = "audio_generation"
 TTS = "tts"
 VISION_LANGUAGE = "vision_language"
 LANGUAGE = "language"
@@ -62,6 +63,11 @@ _TYPE_REGISTRY: dict[str, TypeSpec] = {
     ),
     IMAGE_EDIT: TypeSpec(
         "server_diffusers_image_edit.py", "image_edit.txt", "Instruction-based image editing"
+    ),
+    AUDIO_GENERATION: TypeSpec(
+        "server_audio_generation.py",
+        "audio_generation.txt",
+        "Text-to-audio generation (music, sound effects)",
     ),
     TTS: TypeSpec("server_tts.py", "tts.txt", "Text-to-speech synthesis"),
     VISION_LANGUAGE: TypeSpec(

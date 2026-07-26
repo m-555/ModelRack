@@ -33,7 +33,7 @@ weights — **without ever importing `torch`, `diffusers` or `vllm` itself.**
   parameters (type, range, options, label). Render settings panels dynamically — no
   hardcoding per model.
 - **Open, extensible model types.** `video_generation`, `image_generation`, `image_edit`,
-  `tts`, `vision_language`, `language`, `code`, `omni` ship built-in — and you can register
+  `audio_generation`, `tts`, `vision_language`, `language`, `code`, `omni` ship built-in — and you can register
   new kinds without touching the core.
 - **Local *and* API models, one interface.** Local models run as isolated subprocess
   servers; cloud API models (Anthropic, OpenAI, Google/Vertex, …) run **in-process** via
@@ -166,6 +166,7 @@ user changed. Outputs follow these conventions (implemented in each model's `ser
 |---|---|---|---|
 | `video_generation` | wan-2.2-i2v | `prompt`, `image` (path/URL/base64), `num_frames`, `fps`, `seed` | `{output_path, width, height, num_frames, fps}` |
 | `tts` | qwen3-tts, qwen3-tts-clone, chatterbox, fish-s2 | `text`, `language`, `speaker`/`instruct` (custom-voice) or `ref_audio_path`/`ref_text` (clone), sampling params, `seed` | `{audio_base64, sample_rate, encoding}` |
+| `audio_generation` | stable-audio-3 | `prompt`, `negative_prompt`, `duration_s`, `steps`, `cfg_scale`, `sampler_type`, `seed` | `{output_path, sample_rate, duration_s, channels, seed}` |
 | `image_generation` | qwen-image, z-image-turbo | `prompt`, `negative_prompt`, `num_inference_steps`, `width`, `height` | `{image_base64}` |
 | `image_edit` | qwen-image-edit | `prompt`, `images` (list of base64) | `{image_base64}` |
 | `language` / `code` | qwen3.6, qwen3-coder | `messages` or `prompt`, `temperature`, `max_tokens` | `{text}` |
