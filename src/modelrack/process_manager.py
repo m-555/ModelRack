@@ -51,6 +51,15 @@ UV_INSTALL_HINT = (
 # stays out of the (portable) committed configs.
 EXTRA_INDEX_ENV = "MODELRACK_PIP_EXTRA_INDEX_URL"
 
+# Machine-wide default for uv's index strategy. See _index_strategy().
+INDEX_STRATEGY_ENV = "MODELRACK_PIP_INDEX_STRATEGY"
+
+# uv's accepted values. "first-index" (uv's default) stops at the first index
+# that publishes a package at all, which is what protects against dependency
+# confusion — and what makes an extra index for accelerator wheels fail in a
+# non-obvious way (see _index_strategy).
+_INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
+
 
 def _extra_index_urls(environment: dict) -> list[str]:
     """Collect extra package index URLs for a `uv pip install`, from the model's
@@ -72,6 +81,39 @@ def _extra_index_urls(environment: dict) -> list[str]:
             seen.add(u)
             ordered.append(u)
     return ordered
+
+
+def _index_strategy(environment: dict) -> str | None:
+    """uv ``--index-strategy`` for a ``setup`` install, or None to leave default.
+
+    Read from the model's ``environment.pip_index_strategy``, falling back to the
+    machine-wide ``MODELRACK_PIP_INDEX_STRATEGY``.
+
+    Why this exists: an accelerator wheel index (PyTorch's CUDA channel and its
+    peers) republishes a handful of ordinary packages at pinned older versions.
+    Under uv's default ``first-index``, any such package is then resolved ONLY
+    from that index — so a dependency needing a newer version of it fails to
+    resolve, with an error naming the innocent package rather than the index.
+    ``unsafe-best-match`` considers all indexes and picks the best version,
+    which is what a wheel-index setup normally wants.
+
+    It is opt-in and named "unsafe" by uv for a real reason: with untrusted
+    indexes it re-opens dependency confusion. Set it only when every configured
+    index is one you trust.
+    """
+    value = str(
+        environment.get("pip_index_strategy")
+        or os.environ.get(INDEX_STRATEGY_ENV, "")
+    ).strip()
+    if not value:
+        return None
+    if value not in _INDEX_STRATEGIES:
+        logger.warning(
+            "Ignoring unknown pip_index_strategy %r (expected one of %s)",
+            value, ", ".join(_INDEX_STRATEGIES),
+        )
+        return None
+    return value
 
 
 class ProcessManager:
@@ -146,6 +188,10 @@ class ProcessManager:
             for url in _extra_index_urls(env):
                 cmd += ["--extra-index-url", url]
                 logger.info("Using extra package index for %s: %s", model_id, url)
+            strategy = _index_strategy(env)
+            if strategy:
+                cmd += ["--index-strategy", strategy]
+                logger.info("Index strategy for %s: %s", model_id, strategy)
             self._run(cmd)
         else:
             logger.warning("No requirements.txt for %s at %s", model_id, requirements)

@@ -34,13 +34,27 @@ All notable changes to this project are documented here. The format is based on
   the diffusers venv, so the image/video models co-tenanting it cannot inherit a
   dependency downgrade. GPU-verified: 20 s of audio in 2.3 s at 9.34 GB peak.
 
-### Known gap
-- **`setup` has no torch-index story.** It installs from the default PyPI index,
-  so a model pinning a CUDA build of PyTorch silently gets the CPU wheel and
-  runs on the processor with no error. Today the workaround is a manual
-  force-install from the appropriate `download.pytorch.org/whl/<cuda>` index
-  after `setup`. A per-model `environment.index_url` (or a torch-aware
-  `requirements` pass) would remove a footgun that costs an hour every time.
+- **`environment.pip_index_strategy`** — sets uv's `--index-strategy` for a
+  `setup` install (`first-index` | `unsafe-first-match` | `unsafe-best-match`),
+  with a machine-wide `MODELRACK_PIP_INDEX_STRATEGY` default that the per-model
+  value overrides. An unrecognised value is warned about and ignored rather than
+  forwarded — a typo should not abort a setup.
+
+  This closes a trap in the existing `pip_extra_index_url` support. uv defaults
+  to `first-index`: once an index publishes a package *at all*, only that index
+  is consulted for it — the protection against dependency confusion. But
+  accelerator wheel indexes also republish ordinary packages (`packaging`,
+  `setuptools`, …) at pinned older versions, so adding one could make an
+  unrelated dependency unresolvable, and **uv's error names that dependency
+  rather than the index**, sending you to look in entirely the wrong place.
+  Without an extra index configured, nothing changes.
+
+  `docs/config-schema.md` now also states the other half of this, which is not
+  obvious and fails silently: **name the accelerator package explicitly in
+  `requirements.txt`**. Pulled in only as some other package's transitive
+  dependency, it resolves from PyPI — the CPU build on Windows — and the model
+  then runs entirely on the processor, producing correct output at a fraction of
+  the speed with nothing anywhere reporting a problem.
 - **qwen3-tts-clone example model** — Qwen3-TTS-12Hz-1.7B-**Base** voice-clone
   counterpart to the CustomVoice model (port 7811, Apache-2.0). `/infer` takes
   `text` + `ref_audio_path` (absolute path on the shared filesystem, same

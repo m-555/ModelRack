@@ -16,7 +16,7 @@ This is the **base layer** — sacred, never written by apps. Apps layer overrid
 | `weights` | local | Map of role → path relative to the model folder. `main` is required and validated; others are optional. For diffusers/transformers models, point `main` at the `weights/` directory. |
 | `hardware` | | `min_vram_gb`, `recommended_vram_gb`, `dtype`, `device`. |
 | `server` | local | `port` (unique, reserved range 7800–7899), `host`, `startup_timeout_sec`, `endpoints`. |
-| `environment` | local | `python_version`, `requirements_file`, `venv_path`, optional `shared_venv` (see [Sharing a venv](#sharing-a-venv-across-models)), optional `pip_extra_index_url` (see [GPU-specific wheels](#gpu-specific-wheels-eg-pytorch-cuda)). |
+| `environment` | local | `python_version`, `requirements_file`, `venv_path`, optional `shared_venv` (see [Sharing a venv](#sharing-a-venv-across-models)), optional `pip_extra_index_url` + `pip_index_strategy` (see [GPU-specific wheels](#gpu-specific-wheels-eg-pytorch-cuda)). |
 | `defaults` | | Default runtime parameter values (the base of the 3-layer merge). |
 | `param_schema` | | UI-renderable description of every editable parameter. |
 | `load_hints` | | Framework/pipeline/class + HF repo — hints for `server.py`. |
@@ -98,11 +98,42 @@ build, point `setup` at an extra wheel index:
     pip_extra_index_url: https://download.pytorch.org/whl/cu128   # str or list
   ```
 
-Both are passed to `uv pip install` as `--extra-index-url`. To *pin* a CUDA build you still
-need the local version in requirements (e.g. `torch==2.8.0+cu128`), which is machine-specific
-— so for a shared GPU stack the cleanest recipe is: **build the CUDA `torch` once into a
-[shared venv](#sharing-a-venv-across-models), then `setup` each model into it** (the extra
-index/pin lives in that one build, and models install the rest of their deps on top).
+Both are passed to `uv pip install` as `--extra-index-url`.
+
+### ⚠️ An extra index usually needs `pip_index_strategy` too
+
+uv defaults to `first-index`: once an index publishes a package *at all*, only that index is
+consulted for it. That is deliberate — it is what prevents dependency-confusion attacks — but
+accelerator wheel indexes also republish a few ordinary packages (`packaging`, `setuptools`, …)
+at pinned older versions. So adding such an index can make an unrelated dependency
+unresolvable, and **uv's error names that dependency, not the index**, which sends you looking
+in the wrong place entirely.
+
+```yaml
+environment:
+  pip_extra_index_url: https://download.pytorch.org/whl/cu128
+  pip_index_strategy: unsafe-best-match   # consider all indexes, pick best version
+```
+
+Accepted: `first-index` (uv's default), `unsafe-first-match`, `unsafe-best-match`. Machine-wide
+default via `MODELRACK_PIP_INDEX_STRATEGY`; the per-model value wins. An unrecognised value is
+warned about and ignored rather than passed through — a typo should not abort a setup.
+
+uv names these "unsafe" for a real reason: with an *untrusted* index they re-open dependency
+confusion. Set one only when every configured index is trusted (PyPI + a vendor's own wheel
+channel normally qualifies).
+
+**Name the accelerator package explicitly in `requirements.txt`.** If `torch` only arrives as
+some other package's transitive dependency, it resolves from PyPI — which on Windows is the
+CPU build. Everything then works, just entirely on the processor, with no error to say so.
+Pin it directly (`torch==2.7.1`) and let the extra index supply the `+cuXXX` local version,
+which outranks the plain version in PEP 440 ordering, making the resolution deterministic.
+
+Verify after any setup, rather than assuming:
+
+```bash
+<venv>/bin/python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+```
 
 ## API models (`backend: api`)
 
