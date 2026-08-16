@@ -7,6 +7,28 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **`image_segmentation` model type** — segmentation / background removal is now
+  a first-class type with its own server template
+  (`templates/servers/server_image_segmentation.py`) and base requirements. It
+  is deliberately separate from `image_generation` and `image_edit`: nothing
+  generative is involved, there is no prompt, and the dependency set is a few
+  hundred MB of pure torch rather than a diffusion stack with a text encoder.
+  The template makes **batching first-class** — `images_base64` alongside
+  `image_base64`, with the response shape mirroring the request. That matters
+  under single-residency serving: segmentation is usually a post-process for
+  another model's output, so a caller alternating generate/segment one image at
+  a time would evict and reload both models on every image, while one batched
+  request keeps each loaded once.
+- **BiRefNet example model** — high-resolution dichotomous segmentation
+  (port 7872) producing a **soft matte**, so hair and thin structures survive
+  the cutout instead of being stair-stepped away by a hard threshold. `/infer`
+  takes `image_base64` / `images_base64` plus `output` (`rgba` cutout or `mask`
+  matte), `threshold` and `resolution`, and always returns PNG — a cutout's
+  whole value is its alpha channel, which the lossy formats would either drop or
+  fringe. Loaded through the transformers remote-code path, which is why it
+  declares its own `segmentation-cu128` shared venv with a `transformers<5`
+  bound rather than co-tenanting the image-generation venv: keeping the bound
+  local to this model is what stops it constraining the image stack.
 - **`audio_generation` model type** — text-to-audio generation (music, sound
   effects) is now a first-class type with its own server template
   (`templates/servers/server_audio_generation.py`) and base requirements, so

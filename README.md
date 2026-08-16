@@ -33,7 +33,7 @@ weights — **without ever importing `torch`, `diffusers` or `vllm` itself.**
   parameters (type, range, options, label). Render settings panels dynamically — no
   hardcoding per model.
 - **Open, extensible model types.** `video_generation`, `image_generation`, `image_edit`,
-  `audio_generation`, `tts`, `vision_language`, `language`, `code`, `omni` ship built-in — and you can register
+  `image_segmentation`, `audio_generation`, `tts`, `vision_language`, `language`, `code`, `omni` ship built-in — and you can register
   new kinds without touching the core.
 - **Local *and* API models, one interface.** Local models run as isolated subprocess
   servers; cloud API models (Anthropic, OpenAI, Google/Vertex, …) run **in-process** via
@@ -169,6 +169,7 @@ user changed. Outputs follow these conventions (implemented in each model's `ser
 | `audio_generation` | stable-audio-3 | `prompt`, `negative_prompt`, `duration_s`, `steps`, `cfg_scale`, `sampler_type`, `seed` | `{output_path, sample_rate, duration_s, channels, seed}` |
 | `image_generation` | qwen-image, z-image-turbo | `prompt`, `negative_prompt`, `num_inference_steps`, `width`, `height` | `{image_base64}` |
 | `image_edit` | qwen-image-edit | `prompt`, `images` (list of base64) | `{image_base64}` |
+| `image_segmentation` | birefnet | `image_base64` or `images_base64` (batch), `output` (`rgba`/`mask`), `threshold`, `resolution` | `{image_base64, width, height}` or `{images_base64, sizes}` |
 | `language` / `code` | qwen3.6, qwen3-coder | `messages` or `prompt`, `temperature`, `max_tokens` | `{text}` |
 | `vision_language` / `omni` | qwen2.5-vl, qwen3-omni | `messages` (multimodal), sampling params | `{text}` (+ `audio_base64` for omni) |
 

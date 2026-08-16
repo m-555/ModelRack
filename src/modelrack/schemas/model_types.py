@@ -31,6 +31,7 @@ class Backend(str, Enum):
 VIDEO_GENERATION = "video_generation"
 IMAGE_GENERATION = "image_generation"
 IMAGE_EDIT = "image_edit"
+IMAGE_SEGMENTATION = "image_segmentation"
 AUDIO_GENERATION = "audio_generation"
 TTS = "tts"
 VISION_LANGUAGE = "vision_language"
@@ -63,6 +64,11 @@ _TYPE_REGISTRY: dict[str, TypeSpec] = {
     ),
     IMAGE_EDIT: TypeSpec(
         "server_diffusers_image_edit.py", "image_edit.txt", "Instruction-based image editing"
+    ),
+    IMAGE_SEGMENTATION: TypeSpec(
+        "server_image_segmentation.py",
+        "image_segmentation.txt",
+        "Segmentation / background removal (image in, mask or RGBA cutout out)",
     ),
     AUDIO_GENERATION: TypeSpec(
         "server_audio_generation.py",

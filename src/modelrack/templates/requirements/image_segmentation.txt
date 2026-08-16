@@ -1,0 +1,19 @@
+# Base pinned dependencies for image-segmentation / background-removal models.
+# Installed into the model's isolated .venv by `modelrack setup`.
+#
+# Segmentation models are typically small (hundreds of MB) and pure-torch — they
+# need neither diffusers nor a text encoder, which is why they get their own
+# requirements set rather than borrowing the image-generation one.
+torch>=2.5.0
+torchvision>=0.20.0
+transformers>=4.44.0
+# Many segmentation backbones (Swin, ConvNeXt, ...) are loaded through timm.
+timm>=1.0.0
+safetensors>=0.4.5
+pillow>=10.4.0
+numpy>=1.26
+# --- server runtime ---
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.0
+pyyaml>=6.0

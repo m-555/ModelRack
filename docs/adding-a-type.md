@@ -12,7 +12,8 @@ A type maps to two defaults:
 - a **base requirements file** (`templates/requirements/<...>.txt`).
 
 Built-in types: `video_generation`, `image_generation`, `image_edit`,
-`audio_generation`, `tts`, `vision_language`, `language`, `code`, `omni`.
+`image_segmentation`, `audio_generation`, `tts`, `vision_language`, `language`,
+`code`, `omni`.
 
 ## Option A — register at runtime
 
