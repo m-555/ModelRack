@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Centralized model registry, config pipeline, and process manager for local & API generative-AI models — with zero ML dependencies."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Mohsen Mirzaei", email = "mirzaie_ms@yahoo.com" }]
 keywords = [
     "machine-learning",
@@ -23,7 +24,6 @@ keywords = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -73,11 +73,17 @@ modelrack = "modelrack.cli.main:app"
 [tool.hatch.build.targets.wheel]
 packages = ["src/modelrack"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/modelrack/templates" = "modelrack/templates"
+# No force-include for templates: `packages = ["src/modelrack"]` already carries
+# src/modelrack/templates, and adding it a second time made the wheel build abort
+# with a duplicate-path error — i.e. the wheel could never be built at all.
 
 [tool.hatch.build.targets.sdist]
-include = ["src/modelrack", "tests", "examples", "README.md", "LICENSE"]
+# `examples/` is deliberately absent: it doubles as the on-disk MODELS_DIR, so it
+# holds hundreds of GB of downloaded weights. It is gitignored and would ship empty
+# anyway — listing it only invited the build backend to walk it. Model configs live
+# in the repo; the sdist points there.
+include = ["src/modelrack", "tests", "README.md", "LICENSE"]
+exclude = ["**/weights", "**/*.safetensors", "**/*.gguf", "**/*.bin", "**/*.ckpt", "**/*.pt"]
 
 [tool.ruff]
 line-length = 100
