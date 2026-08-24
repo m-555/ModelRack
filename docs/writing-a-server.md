@@ -31,6 +31,7 @@ modified:
 def load_model(model_dir: Path, config: dict):
     """Load weights into VRAM, return the model/pipeline object."""
 
+
 def run_inference(model, payload: dict) -> dict:
     """Run one request. `payload` = merged config defaults + request params."""
 ```

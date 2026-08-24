@@ -22,8 +22,8 @@ from modelrack import register_type
 
 register_type(
     "embedding",
-    template="server_embedding.py",       # must exist in templates/servers/
-    requirements="embedding.txt",         # must exist in templates/requirements/
+    template="server_embedding.py",  # must exist in templates/servers/
+    requirements="embedding.txt",  # must exist in templates/requirements/
     description="Text embedding model",
 )
 ```

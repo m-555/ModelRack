@@ -107,8 +107,8 @@ touching real models: drop it into `MODELS_DIR`, then `modelrack setup echo` and
 ```python
 from modelrack import ModelRack
 
-hub = ModelRack()                                  # reads MODELS_DIR from env
-hub = ModelRack(models_dir="/data/models")         # or pass explicitly
+hub = ModelRack()  # reads MODELS_DIR from env
+hub = ModelRack(models_dir="/data/models")  # or pass explicitly
 
 # Resolve config (3-layer merge)
 m = hub.resolve("qwen-image", runtime_params={"num_inference_steps": 30})
@@ -119,12 +119,15 @@ hub.list(type="image_generation")
 hub.schema("qwen-image")
 
 # Validation
-hub.validate("qwen-image")                         # -> ValidationResult(valid, errors, warnings)
+hub.validate("qwen-image")  # -> ValidationResult(valid, errors, warnings)
 
 # Process lifecycle
-hub.setup("qwen-image"); hub.start("qwen-image")
-hub.status(); hub.is_running("qwen-image")
-hub.unload("qwen-image"); hub.stop("qwen-image")
+hub.setup("qwen-image")
+hub.start("qwen-image")
+hub.status()
+hub.is_running("qwen-image")
+hub.unload("qwen-image")
+hub.stop("qwen-image")
 
 # Inference (auto-starts if needed)
 hub.infer("qwen-image", {"prompt": "a lighthouse at dawn"})
@@ -186,16 +189,19 @@ from modelrack import ModelRack
 import base64
 
 hub = ModelRack()
-hub.setup("qwen3-tts")          # one-time: build the isolated venv + install deps
+hub.setup("qwen3-tts")  # one-time: build the isolated venv + install deps
 
-res = hub.infer("qwen3-tts", {
-    "text": "Welcome back — your render is ready.",
-    "language": "English",
-    "speaker": "Ryan",
-    "instruct": "Warm and upbeat.",
-})
+res = hub.infer(
+    "qwen3-tts",
+    {
+        "text": "Welcome back — your render is ready.",
+        "language": "English",
+        "speaker": "Ryan",
+        "instruct": "Warm and upbeat.",
+    },
+)
 audio = base64.b64decode(res["data"]["audio_base64"])
-open("welcome.wav", "wb").write(audio)     # sample_rate in res["data"]["sample_rate"]
+open("welcome.wav", "wb").write(audio)  # sample_rate in res["data"]["sample_rate"]
 ```
 
 **REST (any language):**
@@ -209,14 +215,18 @@ curl -s localhost:7777/infer/qwen3-tts -H 'content-type: application/json' -d '{
 ### Example — WAN 2.2 image-to-video (video out)
 
 ```python
-res = hub.infer("wan-2.2-i2v", {
-    "prompt": "the camera slowly pushes in as snow starts to fall",
-    "image": "https://example.com/first_frame.jpg",   # path, URL, or base64 data URI
-    "num_frames": 81,
-    "fps": 16,
-    "seed": 42,
-}, timeout=1200)                                        # video gen is slow — raise the timeout
-video_path = res["data"]["output_path"]                # .mp4 written on the server host
+res = hub.infer(
+    "wan-2.2-i2v",
+    {
+        "prompt": "the camera slowly pushes in as snow starts to fall",
+        "image": "https://example.com/first_frame.jpg",  # path, URL, or base64 data URI
+        "num_frames": 81,
+        "fps": 16,
+        "seed": 42,
+    },
+    timeout=1200,
+)  # video gen is slow — raise the timeout
+video_path = res["data"]["output_path"]  # .mp4 written on the server host
 ```
 
 > **Where outputs live:** WAN writes the `.mp4` to the model folder's `outputs/` on the *server
@@ -229,11 +239,11 @@ video_path = res["data"]["output_path"]                # .mp4 written on the ser
 Start heavy models once and keep them warm instead of paying cold-start per request:
 
 ```python
-hub.start("qwen3-tts")                  # blocks until healthy; stays up
+hub.start("qwen3-tts")  # blocks until healthy; stays up
 # ... handle many requests ...
-hub.infer("qwen3-tts", {...}, auto_start=False)   # fail fast if it isn't running
-hub.unload("qwen3-tts")                 # free VRAM but keep the process
-hub.stop("qwen3-tts")                   # shut it down
+hub.infer("qwen3-tts", {...}, auto_start=False)  # fail fast if it isn't running
+hub.unload("qwen3-tts")  # free VRAM but keep the process
+hub.stop("qwen3-tts")  # shut it down
 ```
 
 `hub.status()` / `GET /processes` report what's running (port, pid, uptime). Process state is

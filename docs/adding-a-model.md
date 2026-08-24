@@ -44,8 +44,7 @@ Apps keep a `model_overrides.yaml` (see [`examples/app`](../examples/app)) to tw
 without touching the base config:
 
 ```python
-hub.resolve_from_app("my-model", "model_overrides.yaml",
-                     runtime_params={"num_inference_steps": 40})
+hub.resolve_from_app("my-model", "model_overrides.yaml", runtime_params={"num_inference_steps": 40})
 ```
 
 ## API models
