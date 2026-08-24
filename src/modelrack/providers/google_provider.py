@@ -2,7 +2,7 @@
 
 Normalized payload (for `language` / `vision_language` models):
     messages          (list, required)   standard chat messages ({role, content})
-    max_tokens        (int)   default 1024  -> max_output_tokens
+    max_tokens        (int)   default 8192  -> max_output_tokens (thinking + answer)
     system            (str)   optional system prompt -> system_instruction
     provider_params   (dict)  native escape hatch merged into the request `config`
                               (e.g. temperature, top_p, thinking_config, tools,
@@ -21,7 +21,8 @@ from typing import Any
 from modelrack.providers.base import Provider, ProviderError
 from modelrack.schemas.resolved_model import ResolvedModel
 
-_DEFAULT_MODEL = "gemini-2.5-flash"
+_DEFAULT_MODEL = "gemini-3.5-flash"  # 2.5 line: Vertex EOL 2026-10-20
+_DEFAULT_MAX_TOKENS = 8192  # thinking + answer; see _build_request
 _DEFAULT_KEY_ENV = "GEMINI_API_KEY"
 _TRUTHY = {"1", "true", "yes", "on"}
 
@@ -104,7 +105,14 @@ class GoogleProvider(Provider):
                 parts = [{"text": content if isinstance(content, str) else str(content)}]
             contents.append({"role": role, "parts": parts})
 
-        config: dict[str, Any] = {"max_output_tokens": int(payload.get("max_tokens", 1024))}
+        # ⚠️ 8192, not 1024: max_output_tokens is THINKING + answer, and Gemini 3
+        # spends ~800-1300 tokens thinking regardless of task. At 1024 the answer
+        # is silently truncated mid-sentence (or empty) and JSON callers read it
+        # as a valid empty result. This is only the floor for a caller that sends
+        # nothing — a model config's `defaults.max_tokens` still wins.
+        config: dict[str, Any] = {
+            "max_output_tokens": int(payload.get("max_tokens", _DEFAULT_MAX_TOKENS))
+        }
         if payload.get("system"):
             config["system_instruction"] = payload["system"]
         # provider_params supplies native fields; normalized core fields win on overlap.
@@ -123,7 +131,7 @@ class GoogleProvider(Provider):
         if candidates:
             first = candidates[0]
             content = getattr(first, "content", None)
-            for part in (getattr(content, "parts", None) or []):
+            for part in getattr(content, "parts", None) or []:
                 piece = getattr(part, "text", None)
                 if piece:
                     text += piece

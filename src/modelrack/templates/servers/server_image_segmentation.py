@@ -82,9 +82,7 @@ def inputs_of(payload: dict[str, Any]) -> tuple[list[Any], bool]:
     if not isinstance(raw, list) or not raw:
         raise ValueError("payload.images_base64 must be a non-empty list")
 
-    images = [
-        Image.open(io.BytesIO(base64.b64decode(item))).convert("RGB") for item in raw
-    ]
+    images = [Image.open(io.BytesIO(base64.b64decode(item))).convert("RGB") for item in raw]
     return images, batched
 
 

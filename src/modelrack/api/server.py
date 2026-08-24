@@ -10,8 +10,8 @@ Start it with ``modelrack serve`` (default port 7777, override via ``MODELRACK_P
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -35,7 +35,12 @@ def create_app(models_dir: str | Path | None = None) -> FastAPI:
         hub = ModelRack(models_dir)
         # Fresh start = clean GPU: kill any model servers orphaned by a previous
         # hub instance (they hold VRAM). Disable with MODELRACK_CLEAN_ON_START=0.
-        if os.getenv("MODELRACK_CLEAN_ON_START", "1").strip().lower() not in ("0", "false", "no", "off"):
+        if os.getenv("MODELRACK_CLEAN_ON_START", "1").strip().lower() not in (
+            "0",
+            "false",
+            "no",
+            "off",
+        ):
             hub.processes.reset()
         report = hub.scan()  # auto-sync registry on startup
         logger.info("Hub API up. scan_and_sync: %s", report)

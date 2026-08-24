@@ -102,15 +102,15 @@ def _index_strategy(environment: dict) -> str | None:
     index is one you trust.
     """
     value = str(
-        environment.get("pip_index_strategy")
-        or os.environ.get(INDEX_STRATEGY_ENV, "")
+        environment.get("pip_index_strategy") or os.environ.get(INDEX_STRATEGY_ENV, "")
     ).strip()
     if not value:
         return None
     if value not in _INDEX_STRATEGIES:
         logger.warning(
             "Ignoring unknown pip_index_strategy %r (expected one of %s)",
-            value, ", ".join(_INDEX_STRATEGIES),
+            value,
+            ", ".join(_INDEX_STRATEGIES),
         )
         return None
     return value
@@ -156,7 +156,8 @@ class ProcessManager:
                 logger.warning(
                     "Not removing shared venv %s on --force (other models use it); "
                     "reinstalling %s's requirements into it instead.",
-                    vdir, model_id,
+                    vdir,
+                    model_id,
                 )
             else:
                 logger.info("Removing existing venv %s", vdir)
@@ -165,7 +166,10 @@ class ProcessManager:
         if not resolve_venv_exists(self.models_dir, model_dir, env):
             logger.info(
                 "Creating %svenv for %s (python %s) at %s",
-                "shared " if shared_name else "", model_id, python_version, vdir,
+                "shared " if shared_name else "",
+                model_id,
+                python_version,
+                vdir,
             )
             self._run([uv, "venv", "--python", python_version, str(vdir)])
         else:
@@ -174,7 +178,8 @@ class ProcessManager:
         if requirements.exists():
             logger.info(
                 "Installing requirements for %s into %s",
-                model_id, f"shared venv '{shared_name}'" if shared_name else "its venv",
+                model_id,
+                f"shared venv '{shared_name}'" if shared_name else "its venv",
             )
             cmd = [
                 uv,
@@ -216,7 +221,11 @@ class ProcessManager:
                 "%svenv %s is Python %s but '%s' requests python_version=%s. Mixing "
                 "Python versions in one venv causes subtle breakage; give this model its "
                 "own shared_venv.",
-                "Shared " if shared else "", vdir, actual, model_id, expected_pyver,
+                "Shared " if shared else "",
+                vdir,
+                actual,
+                model_id,
+                expected_pyver,
             )
 
     def _ensure_server_file(self, resolved: ResolvedModel, model_dir: Path) -> None:
@@ -275,7 +284,9 @@ class ProcessManager:
             logger.warning(
                 "Port %s for '%s' is unavailable (in use or OS-reserved); "
                 "using free port %s instead.",
-                configured_port, model_id, port,
+                configured_port,
+                model_id,
+                port,
             )
 
         python = resolve_venv_python(self.models_dir, model_dir, env)
@@ -339,8 +350,9 @@ class ProcessManager:
         for model_id in list(self._processes.keys()):
             rec = self._processes.get(model_id)
             if rec is not None:
-                logger.warning("Startup cleanup: killing orphaned server for %s (pid %s)",
-                               model_id, rec.pid)
+                logger.warning(
+                    "Startup cleanup: killing orphaned server for %s (pid %s)", model_id, rec.pid
+                )
                 self._terminate(model_id, rec.pid, graceful=False)
         self._processes.clear()
         self._popen.clear()

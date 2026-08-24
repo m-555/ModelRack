@@ -46,9 +46,10 @@ def test_extra_index_urls_helper(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv(pm_mod.EXTRA_INDEX_ENV, raising=False)
     assert pm_mod._extra_index_urls({}) == []
     assert pm_mod._extra_index_urls({"pip_extra_index_url": "https://a"}) == ["https://a"]
-    assert pm_mod._extra_index_urls(
-        {"pip_extra_index_url": ["https://a", "https://b"]}
-    ) == ["https://a", "https://b"]
+    assert pm_mod._extra_index_urls({"pip_extra_index_url": ["https://a", "https://b"]}) == [
+        "https://a",
+        "https://b",
+    ]
     # env-var entries are appended and de-duped against config (order preserved)
     monkeypatch.setenv(pm_mod.EXTRA_INDEX_ENV, "https://env1, https://a")
     assert pm_mod._extra_index_urls({"pip_extra_index_url": "https://a"}) == [

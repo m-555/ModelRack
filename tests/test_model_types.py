@@ -11,10 +11,11 @@ from __future__ import annotations
 import copy
 from pathlib import Path
 
+from tests.conftest import DIFFUSERS_CONFIG
+
 import modelrack
 from modelrack.schemas import model_types as mt
 from modelrack.validator import ConfigValidator
-from tests.conftest import DIFFUSERS_CONFIG
 
 TEMPLATES = Path(modelrack.__file__).parent / "templates"
 
@@ -50,8 +51,12 @@ def test_an_audio_generation_config_validates():
 
 
 def test_runtime_registration_still_works():
-    mt.register_type("test_kind", template="server_tts.py", requirements="tts.txt",
-                     description="registered at runtime")
+    mt.register_type(
+        "test_kind",
+        template="server_tts.py",
+        requirements="tts.txt",
+        description="registered at runtime",
+    )
     try:
         assert mt.is_known_type("test_kind")
         assert mt.template_for("test_kind") == "server_tts.py"

@@ -10,6 +10,7 @@ import pytest
 from modelrack.providers import get_provider, register_provider
 from modelrack.providers.anthropic_provider import AnthropicProvider
 from modelrack.providers.base import Provider, ProviderError
+from modelrack.providers.google_provider import GoogleProvider
 from modelrack.schemas.resolved_model import ResolvedModel
 
 
@@ -33,6 +34,7 @@ def _resolved(api_model_id: str = "claude-opus-4-8", **merged: Any) -> ResolvedM
 # ===========================================================================
 # _build_request
 # ===========================================================================
+
 
 def test_build_request_core_fields():
     req = AnthropicProvider._build_request(
@@ -72,9 +74,28 @@ def test_build_request_missing_messages_raises():
         AnthropicProvider._build_request(_resolved(), {"max_tokens": 10})
 
 
+def test_google_request_uses_current_model_and_thinking_safe_default_budget():
+    model, _contents, config = GoogleProvider._build_request(
+        _resolved(api_model_id=""),
+        {"messages": [{"role": "user", "content": "return JSON"}]},
+    )
+    assert model == "gemini-3.5-flash"
+    assert config["max_output_tokens"] == 8192
+
+
+def test_google_request_explicit_max_tokens_wins():
+    model, _contents, config = GoogleProvider._build_request(
+        _resolved(api_model_id="gemini-3.5-flash-lite"),
+        {"messages": [{"role": "user", "content": "hi"}], "max_tokens": 2048},
+    )
+    assert model == "gemini-3.5-flash-lite"
+    assert config["max_output_tokens"] == 2048
+
+
 # ===========================================================================
 # _map_response
 # ===========================================================================
+
 
 def test_map_response_concatenates_text_and_reads_usage():
     resp = types.SimpleNamespace(
@@ -99,6 +120,7 @@ def test_map_response_concatenates_text_and_reads_usage():
 # ===========================================================================
 # infer end-to-end (fake client)
 # ===========================================================================
+
 
 def test_infer_calls_sdk_and_maps(monkeypatch):
     captured = {}
@@ -140,6 +162,7 @@ def test_infer_wraps_sdk_error(monkeypatch):
 # credentials + registry
 # ===========================================================================
 
+
 def test_resolve_api_key_reads_named_env(monkeypatch):
     monkeypatch.setenv("MY_KEY", "secret-123")
     r = _resolved(api_key_env="MY_KEY")
@@ -179,6 +202,7 @@ def test_register_provider_roundtrip():
 # ===========================================================================
 # ModelRack routing: backend: api -> provider (not the subprocess client)
 # ===========================================================================
+
 
 def test_modelrack_routes_api_model_to_provider(tmp_path, monkeypatch):
     import modelrack.providers as providers_pkg

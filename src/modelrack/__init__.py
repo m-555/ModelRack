@@ -214,8 +214,8 @@ class ModelRack:
             return
 
         stop_mode = os.getenv("MODELRACK_EVICT_MODE", "stop").strip().lower() != "unload"
-        keep = set(self._recent[-self._max_resident:]) | {model_id}
-        stopped_pids: list[int] = []
+        keep = set(self._recent[-self._max_resident :]) | {model_id}
+        stopped_pids: builtins.list[int] = []
         freed_any = False
         for rec in self.processes.status():
             if rec.model_id not in keep:
@@ -228,9 +228,12 @@ class ModelRack:
                     else:
                         self.client.unload(rec.model_id)
                     freed_any = True
-                    logger.warning("VRAM guard: %s %s to make room for %s",
-                                   "stopped" if stop_mode else "unloaded",
-                                   rec.model_id, model_id)
+                    logger.warning(
+                        "VRAM guard: %s %s to make room for %s",
+                        "stopped" if stop_mode else "unloaded",
+                        rec.model_id,
+                        model_id,
+                    )
                 except Exception as exc:  # noqa: BLE001 - never block an infer on cleanup
                     logger.warning("VRAM guard: failed to free %s: %s", rec.model_id, exc)
 
@@ -243,7 +246,7 @@ class ModelRack:
         if freed_any:
             self._await_vram_settle(stopped_pids, incoming=model_id)
 
-    def _await_vram_settle(self, pids: list[int], incoming: str = "") -> None:
+    def _await_vram_settle(self, pids: builtins.list[int], incoming: str = "") -> None:
         """Block until VRAM freed by just-evicted model servers is reclaimed by
         the driver, before the next model loads.
 
@@ -285,8 +288,11 @@ class ModelRack:
             else:
                 stable = 0
             prev = cur
-        logger.info("VRAM guard: %d MiB free before loading %s",
-                    self._gpu_free_mib() or -1, incoming or "next model")
+        logger.info(
+            "VRAM guard: %d MiB free before loading %s",
+            self._gpu_free_mib() or -1,
+            incoming or "next model",
+        )
         time.sleep(settle)
 
     @staticmethod
@@ -294,9 +300,10 @@ class ModelRack:
         """Free VRAM on GPU 0 in MiB via ``nvidia-smi``; None if unavailable."""
         try:
             out = subprocess.run(
-                ["nvidia-smi", "--query-gpu=memory.free",
-                 "--format=csv,noheader,nounits"],
-                capture_output=True, text=True, timeout=5,
+                ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if out.returncode != 0 or not out.stdout.strip():
                 return None
