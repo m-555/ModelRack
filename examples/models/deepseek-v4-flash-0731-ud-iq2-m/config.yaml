@@ -1,0 +1,118 @@
+model_id: deepseek-v4-flash-0731-ud-iq2-m
+display_name: DeepSeek V4 Flash 0731 UD-IQ2_M
+type: language
+backend: local
+version: "v4-flash-0731-ud-iq2-m"
+tags: [language, llm, text-only, deepseek, gguf, iq2_m, local]
+
+weights:
+  main: weights/DeepSeek-V4-Flash-0731-UD-IQ2_M-00001-of-00003.gguf
+
+hardware:
+  min_vram_gb: 16
+  recommended_vram_gb: 32
+  min_ram_gb: 128
+  dtype: iq2_m
+  device: cuda
+
+server:
+  port: 7816
+  host: "127.0.0.1"
+  startup_timeout_sec: 1800
+  endpoints:
+    infer: "POST /infer"
+    health: "GET /health"
+    unload: "POST /unload"
+    info: "GET /info"
+
+environment:
+  python_version: "3.11"
+  requirements_file: requirements.txt
+  venv_path: .venv
+  shared_venv: qwen38-llama-server-proxy
+
+defaults:
+  max_tokens: 4096
+  temperature: 0.7
+  top_p: 0.95
+  top_k: 20
+  repetition_penalty: 1.0
+  enable_thinking: false
+  preserve_thinking: false
+
+param_schema:
+  messages:
+    type: list
+    label: "Messages"
+    description: "Chat messages. Tuber sends text-only message content."
+  prompt:
+    type: str
+    label: "Prompt"
+    description: "Raw prompt alternative to messages."
+  max_tokens:
+    type: int
+    min: 16
+    max: 8192
+    step: 16
+    label: "Max New Tokens"
+  temperature:
+    type: float
+    min: 0.0
+    max: 2.0
+    step: 0.05
+    label: "Temperature"
+  top_p:
+    type: float
+    min: 0.0
+    max: 1.0
+    step: 0.05
+    label: "Top-p"
+  top_k:
+    type: int
+    min: 0
+    max: 100
+    step: 1
+    label: "Top-k"
+  repetition_penalty:
+    type: float
+    min: 1.0
+    max: 2.0
+    step: 0.05
+    label: "Repetition Penalty"
+  enable_thinking:
+    type: bool
+    label: "Thinking Mode"
+  preserve_thinking:
+    type: bool
+    label: "Preserve Earlier Thinking"
+
+load_hints:
+  framework: llama.cpp
+  model_class: DeepSeekV4ForCausalLM
+  hf_repo: unsloth/DeepSeek-V4-Flash-0731-GGUF
+  hf_folder: UD-IQ2_M
+  runtime_release: ggml-org/llama.cpp@b10661
+  runtime_asset: llama-b10661-bin-win-cuda-13.3-x64.zip
+
+serving:
+  engine: llama.cpp
+  lazy_load: true
+  cuda_runtime_dir: runtime
+  backend_startup_timeout_sec: 1800
+  request_timeout_sec: 3600
+  max_model_len: 16384
+  n_gpu_layers: auto
+  split_mode: none
+  fit: true
+  fit_target_mib: 4096
+  fit_context_min: 16384
+  n_batch: 256
+  n_ubatch: 128
+  flash_attention: false
+  offload_kqv: true
+  weight_glob: "DeepSeek-V4-Flash-0731-UD-IQ2_M-*.gguf"
+
+meta:
+  license: MIT
+  source: "https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF/tree/main/UD-IQ2_M"
+  notes: "Three-part 90.9 GB UD-IQ2_M GGUF. Automatic GPU fitting leaves 4 GiB of RTX 5090 headroom. Flash attention is disabled because affected DeepSeek V4 CUDA releases can otherwise produce repeated or corrupt output for multi-batch prompts. A 128 GB or larger system is recommended; 64 GB can still rely on mapped storage/pagefile."
