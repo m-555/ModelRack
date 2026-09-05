@@ -54,6 +54,21 @@ def test_infer_routes_to_correct_url(monkeypatch: pytest.MonkeyPatch):
     assert result["data"]["ok"] == 1
 
 
+def test_infer_accepts_no_wall_clock_timeout(monkeypatch: pytest.MonkeyPatch):
+    captured: dict = {}
+
+    def fake_post(url, json, timeout):  # noqa: A002
+        captured["timeout"] = timeout
+        return FakeResponse(200, {"success": True, "data": {"ok": 1}})
+
+    monkeypatch.setattr(ic_mod.httpx, "post", fake_post)
+    client = InferenceClient(FakePM(url="http://127.0.0.1:7801"))
+
+    client.infer("demo", {"prompt": "hi"}, timeout=None)
+
+    assert captured["timeout"] is None
+
+
 def test_infer_auto_start(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         ic_mod.httpx, "post", lambda *_a, **_k: FakeResponse(200, {"success": True})

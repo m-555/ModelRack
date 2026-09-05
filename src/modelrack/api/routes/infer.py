@@ -20,7 +20,10 @@ router = APIRouter(prefix="/infer", tags=["inference"])
 class InferBody(BaseModel):
     payload: dict[str, Any]
     auto_start: bool = True
-    timeout: int = 300
+    # None deliberately means no wall-clock response deadline. This is useful
+    # for very large, partially offloaded local models whose prompt evaluation
+    # can remain silent for many minutes.
+    timeout: float | None = 300
 
 
 @router.post("/{model_id}", response_model=None)

@@ -162,7 +162,7 @@ class ModelRack:
         model_id: str,
         payload: dict[str, Any],
         auto_start: bool = True,
-        timeout: int = 300,
+        timeout: float | None = 300,
     ) -> dict[str, Any]:
         # API models run in-process via a provider adapter; local models route over
         # HTTP to their subprocess server. Both return the {success,data,error} envelope.
@@ -176,7 +176,7 @@ class ModelRack:
         model_id: str,
         payload: dict[str, Any],
         auto_start: bool = True,
-        timeout: int = 300,
+        timeout: float | None = 300,
     ) -> Iterator[str]:
         """Yield generated text chunks. Local models stream token-by-token from their
         ``/infer_stream`` endpoint; API models yield the full result once (provider

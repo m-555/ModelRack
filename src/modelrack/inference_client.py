@@ -26,7 +26,7 @@ class InferenceClient:
         model_id: str,
         payload: dict[str, Any],
         auto_start: bool = True,
-        timeout: int = 300,
+        timeout: float | None = 300,
     ) -> dict[str, Any]:
         """POST ``payload`` to the model's ``/infer`` endpoint and return the result.
 
@@ -49,7 +49,7 @@ class InferenceClient:
         model_id: str,
         payload: dict[str, Any],
         auto_start: bool = True,
-        timeout: int = 300,
+        timeout: float | None = 300,
     ) -> Iterator[str]:
         """Yield generated text chunks from the model's ``/infer_stream`` (SSE).
 

@@ -99,7 +99,9 @@ serving:
   lazy_load: true
   cuda_runtime_dir: runtime
   backend_startup_timeout_sec: 1800
-  request_timeout_sec: 3600
+  # 0 removes the wall-clock generation deadline. Connection failures are
+  # still bounded by the proxy; explicit stop/unload remains available.
+  request_timeout_sec: 0
   max_model_len: 16384
   n_gpu_layers: auto
   split_mode: none
