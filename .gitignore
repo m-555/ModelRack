@@ -72,3 +72,9 @@ design/
 *.swp
 .DS_Store
 Thumbs.db
+
+# ─── AgentKit plugin + Claude Code (local tooling, not part of the project) ──
+.ai/
+.claude/
+AGENTS.md
+CLAUDE.md
